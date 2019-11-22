@@ -10,57 +10,68 @@ from prettytable import PrettyTable
 #---------
 # Lattice 
 #---------
-def powerset(n):
-    lis = [i for i in range(1,n+1)]
-    # lis = list(iset)
-    return chain.from_iterable(combinations(lis, r) for r in range(1,len(lis) + 1) )
-#^ powerset()
+class Lattice():
+    def __init__(self, n):
+        self.n = n
+        self.lis = [i for i in range(1,self.n+1)]
+    #^ _init_()
+    
+    def powerset(self):
+        return chain.from_iterable(combinations(self.lis, r) for r in range(1,len(self.lis) + 1) )
+    #^ powerset()
 
-def less_than(beta, alpha):
-    # compare whether an antichain beta is smaller than antichain alpha
-    return all(any(frozenset(b) <= frozenset(a) for b in beta) for a in alpha)
-#^ compare()
+    def less_than(self, beta, alpha):
+        # compare whether an antichain beta is smaller than antichain alpha
+        return all(any(frozenset(b) <= frozenset(a) for b in beta) for a in alpha)
+    #^ compare()
 
-def comparable(a,b):
-    return a < b or a > b
-#^ comparable()
+    def comparable(self, a,b):
+        return a < b or a > b
+    #^ comparable()
 
-def antichain(n):
-    # dummy expensive function might use dit or networkx functions
-    assert n < 5, "antichain(n): number of sources should be less than 5"
-    achain = []
-    for r in range(1, math.floor((2**n - 1)/2) + 2):
-        # enumerate the power set of the powerset
-        for alpha in combinations(powerset(n), r):
-            flag = 1
-            # check if alpha is an antichain
-            for a in list(alpha):
-                for b in list(alpha):
-                    if a < b and comparable(frozenset(a),frozenset(b)): flag = 0 
-                #^ for b
-            #^ for a
-            if flag: achain.append(list(alpha))
-        #^ for alpha
-    #^ for
-    return achain
-#^ antichain()
+    def antichain(self):
+        # dummy expensive function might use dit or networkx functions
+        # assert self.n < 5, "antichain(n): number of sources should be less than 5"
+        achain = []
+        for r in range(1, math.floor((2**self.n - 1)/2) + 2):
+            # enumerate the power set of the powerset
+            for alpha in combinations(self.powerset(), r):
+                flag = 1
+                # check if alpha is an antichain
+                for a in list(alpha):
+                    for b in list(alpha):
+                        if a < b and self.comparable(frozenset(a),frozenset(b)): flag = 0 
+                    #^ for b
+                #^ for a
+                if flag: achain.append(alpha)
+            #^ for alpha
+        #^ for r 
+        return achain
+    #^ antichain()
 
-def children(alpha, achain):
-    chl = []
-    downset = [beta for beta in achain if less_than(beta,alpha) and beta != alpha]
-    for beta in downset:
-        if all(not less_than(beta,gamma) for gamma in downset if gamma != beta):
-            chl.append(beta)
-        #^ if 
-    return chl
-#^ children()
+    def children(self, alpha, achain):
+        chl = []
+        downset = [beta for beta in achain if self.less_than(beta,alpha) and beta != alpha]
+        for beta in downset:
+            if all(not self.less_than(beta,gamma) for gamma in downset if gamma != beta):
+                chl.append(beta)
+            #^ if
+        #^ for beta
+        return chl
+    #^ children()
 
+#^ Lattice()
 
 #---------------
 # pi^+(t:alpha)
 #    and
 # pi^-(t:alpha) 
 #---------------
+
+def powerset(n):
+    lis = [i for i in range(1,n+1)]
+    return chain.from_iterable(combinations(lis, r) for r in range(1,len(lis) + 1) )
+#^ powerset()
 
 def marg(pdf, rlz, uset):
     idxs = [ idx - 1 for idx in list(uset)]
@@ -123,15 +134,15 @@ def vec(num_chld, diffs):
 
 def pi_plus(n, pdf, rlz, alpha, chld, achain):
     diffs = differs(n, pdf, rlz, alpha, chld[tuple(alpha)], False)
-    return np.dot(sgn(len(chld[tuple(alpha)])), -np.log2(vec(len(chld[tuple(alpha)]),diffs)))
+    return np.dot(sgn(len(chld[alpha])), -np.log2(vec(len(chld[alpha]),diffs)))
 #^ pi_plus()
 
 def pi_minus(n, pdf, rlz, alpha, chld, achain):
-    diffs = differs(n, pdf, rlz, alpha, chld[tuple(alpha)], True)
+    diffs = differs(n, pdf, rlz, alpha, chld[alpha], True)
     if chld[tuple(alpha)] == []:
-        return np.dot(sgn(len(chld[tuple(alpha)])), np.log2(vec(len(chld[tuple(alpha)]),diffs)))
+        return np.dot(sgn(len(chld[alpha])), np.log2(vec(len(chld[alpha]),diffs)))
     else:
-        return np.dot(sgn(len(chld[tuple(alpha)])), -np.log2(vec(len(chld[tuple(alpha)]),diffs)))
+        return np.dot(sgn(len(chld[alpha])), -np.log2(vec(len(chld[alpha]),diffs)))
 #^ pi_minus()
 
 def jxpid(n, pdf, chld, achain, printing=True):
@@ -142,7 +153,7 @@ def jxpid(n, pdf, chld, achain, printing=True):
         for alpha in achain:
             piplus = pi_plus(n, pdf, rlz, alpha, chld, achain)
             piminus = pi_minus(n, pdf, rlz, alpha, chld, achain)
-            ptw[rlz][tuple(alpha)] = (piplus, piminus, piplus - piminus)
+            ptw[rlz][alpha] = (piplus, piminus, piplus - piminus)
         #^ for
     #^ for
     for alpha in achain:
@@ -150,10 +161,10 @@ def jxpid(n, pdf, chld, achain, printing=True):
         avgminus = 0.
         avgdiff = 0.
         for rlz in pdf.keys():
-            avgplus  += pdf[rlz]*ptw[rlz][tuple(alpha)][0]
-            avgminus += pdf[rlz]*ptw[rlz][tuple(alpha)][1]
-            avgdiff  += pdf[rlz]*ptw[rlz][tuple(alpha)][2]
-            avg[tuple(alpha)] = (avgplus, avgminus, avgdiff)
+            avgplus  += pdf[rlz]*ptw[rlz][alpha][0]
+            avgminus += pdf[rlz]*ptw[rlz][alpha][1]
+            avgdiff  += pdf[rlz]*ptw[rlz][alpha][2]
+            avg[alpha] = (avgplus, avgminus, avgdiff)
         #^ for
     #^ for
     if printing:
@@ -170,8 +181,8 @@ def jxpid(n, pdf, chld, achain, printing=True):
                     #^ for i
                     stalpha += "}" 
                 #^ for a
-                if count == 0: table.add_row( [str(rlz), stalpha, str(ptw[rlz][tuple(alpha)][0]), str(ptw[rlz][tuple(alpha)][1]), str(ptw[rlz][tuple(alpha)][2])] )
-                else:          table.add_row( [" ", stalpha, str(ptw[rlz][tuple(alpha)][0]), str(ptw[rlz][tuple(alpha)][1]), str(ptw[rlz][tuple(alpha)][2])] )
+                if count == 0: table.add_row( [str(rlz), stalpha, str(ptw[rlz][alpha][0]), str(ptw[rlz][alpha][1]), str(ptw[rlz][alpha][2])] )
+                else:          table.add_row( [" ", stalpha, str(ptw[rlz][alpha][0]), str(ptw[rlz][alpha][1]), str(ptw[rlz][alpha][2])] )
                 count += 1 
             #^ for alpha
             table.add_row(["*", "*", "*", "*", "*"])
@@ -188,8 +199,8 @@ def jxpid(n, pdf, chld, achain, printing=True):
                 #^ for i
                 stalpha += "}" 
             #^ for a
-            if count == 0: table.add_row( ["avg", stalpha, str(avg[tuple(alpha)][0]), str(avg[tuple(alpha)][1]), str(avg[tuple(alpha)][2])] )
-            else:          table.add_row( [" ", stalpha, str(avg[tuple(alpha)][0]), str(avg[tuple(alpha)][1]), str(avg[tuple(alpha)][2])] )
+            if count == 0: table.add_row( ["avg", stalpha, str(avg[alpha][0]), str(avg[alpha][1]), str(avg[alpha][2])] )
+            else:          table.add_row( [" ", stalpha, str(avg[alpha][0]), str(avg[alpha][1]), str(avg[alpha][2])] )
             count += 1
         #^ for alpha
         print(table)
@@ -207,12 +218,13 @@ def jxpid(n, pdf, chld, achain, printing=True):
 
 # Bivariate
 n = 2
-achain = antichain(n)
-
+lattice = Lattice(n)
+achain = lattice.antichain()
 chld = dict()
 for alpha in achain:
-    chld[tuple(alpha)] = children(alpha, achain)
+    chld[alpha] = lattice.children(alpha, achain)
 #^ for
+
 
 # Xor
 xorgate = dict()
@@ -265,14 +277,14 @@ for gate in gates.keys():
 
 #^ for gate
 
-# Trivariate
+# # Trivariate
 n = 3
-achain = antichain(n)
-
+lattice = Lattice(n)
+achain = lattice.antichain()
 chld = dict()
 for alpha in achain:
-    chld[tuple(alpha)] = children(alpha, achain)
-#^ for 
+    chld[alpha] = lattice.children(alpha, achain)
+#^ for
 
 # Trihash
 trihashgate = dict()
@@ -293,12 +305,12 @@ print("time: ", itoc - itic, "secs")
 
 # Quadvariate
 n = 4
-achain = antichain(n)
-
+lattice = Lattice(n)
+achain = lattice.antichain()
 chld = dict()
 for alpha in achain:
-    chld[tuple(alpha)] = children(alpha, achain)
-#^ for 
+    chld[alpha] = lattice.children(alpha, achain)
+#^ for
 
 # Quadhash
 quadhashgate = dict()
