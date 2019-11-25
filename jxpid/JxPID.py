@@ -10,7 +10,7 @@ from prettytable import PrettyTable
 #---------
 # Lattice 
 #---------
-class Lattice():
+class Lattice:
     def __init__(self, n):
         self.n = n
         self.lis = [i for i in range(1,self.n+1)]
@@ -68,8 +68,8 @@ class Lattice():
 # pi^-(t:alpha) 
 #---------------
 
-def powerset(n):
-    lis = [i for i in range(1,n+1)]
+def powerset(m):
+    lis = [i for i in range(1, m+1)]
     return chain.from_iterable(combinations(lis, r) for r in range(1,len(lis) + 1) )
 #^ powerset()
 
@@ -82,7 +82,7 @@ def marg(pdf, rlz, uset):
     return summ
 #^ marg()
     
-def prob(n, pdf, rlz, gamma, target=False):
+def prob(pdf, rlz, gamma, target=False):
     m = len(gamma)
     pset = powerset(m)
     summ = 0
@@ -94,9 +94,9 @@ def prob(n, pdf, rlz, gamma, target=False):
         #^ if 
         for i in list(idxs):
             uset |= frozenset(gamma[i-1])
-        #^ for
+        #^ for i
         summ += (-1)**(len(idxs) + 1) * marg(pdf, rlz, uset)
-    #^ for
+    #^ for idxs
     return summ
 #^ prob()
 
@@ -116,13 +116,14 @@ def sgn(num_chld):
         return np.array([+1])
     else:
         return np.concatenate((sgn(num_chld - 1), -sgn(num_chld - 1)), axis=None)
+    #^ if bottom 
 #^sgn()
-
+    
 def vec(num_chld, diffs):
     """
     Args: 
-         num_chld : the number of the children of alpha: (gamma_1,...,gamma_{num_chld}) 
-         diffs : vector of probability differences (d_i)_i where d_i = p(gamma_i) - p(alpha) and d_0 = p(alpha)  
+    num_chld : the number of the children of alpha: (gamma_1,...,gamma_{num_chld}) 
+    diffs : vector of probability differences (d_i)_i where d_i = p(gamma_i) - p(alpha) and d_0 = p(alpha)  
     """
     # print(diffs)
     if num_chld == 0:
@@ -130,6 +131,7 @@ def vec(num_chld, diffs):
     else:
         temp = vec(num_chld - 1, diffs) + diffs[num_chld]*np.ones(2**(num_chld - 1))
         return np.concatenate((vec(num_chld - 1, diffs), temp), axis=None)
+    #^ if bottom
 #^ vec()
 
 def pi_plus(n, pdf, rlz, alpha, chld, achain):
@@ -138,16 +140,43 @@ def pi_plus(n, pdf, rlz, alpha, chld, achain):
 #^ pi_plus()
 
 def pi_minus(n, pdf, rlz, alpha, chld, achain):
-    diffs = differs(n, pdf, rlz, alpha, chld[alpha], True)
-    if chld[tuple(alpha)] == []:
+    diffs = differs(self, pdf, rlz, alpha, chld[alpha], True)
+    if chld[alpha] == []:
         return np.dot(sgn(len(chld[alpha])), np.log2(vec(len(chld[alpha]),diffs)))
     else:
         return np.dot(sgn(len(chld[alpha])), -np.log2(vec(len(chld[alpha]),diffs)))
+    #^ if bottom
 #^ pi_minus()
 
-def jxpid(n, pdf, chld, achain, printing=True):
+
+def pid(n, pdf_dirty, chld, achain, printing=False):
+    assert type(pdf_dirty) is dict, "jx_pid.pid(pdf, chld, achain): pdf must be a dictionary"
+    assert type(chld) is dict, "jx_pid.pid(pdf, chld, achain): chld must be a dictionary"
+    assert type(achain) is list, "jx_pid.pid(pdf, chld, achain): pdf must be a list"
+
+    if __debug__:
+        sum_p = 0.
+        for k,v in pdf_dirty.items():
+            assert type(k) is tuple,                              "jx_pid.pid(pdf, chld, achain): pdf's keys must be tuples"
+            assert len(k) < 5,                                    "jx_pid.pid(pdf, chld, achain): pdf's keys must be tuples of length at most 4"
+            assert type(v) is float or ( type(v)==int and v==0 ), "jx_pid.pid(pdf, chld, achain): pdf's values must be floats"
+            assert v >-.1,                                        "jx_pid.pid(pdf, chld, achain): pdf's values must be nonnegative"
+            sum_p += v
+        #^ for
+
+        assert abs(sum_p - 1) < 1.e-10,                           "jx_pid.pid(pdf, chld, achain): pdf's keys must sum up to 1 (tolerance of precision is 1.e-10)"
+    #^ if debug
+
+    assert type(printing) is bool,                                "jx_pid.pid(pdf, chld, achain, printing): printing must be a bool"
+
+    # Remove the impossible realization
+    pdf = {k:v for k,v in pdf_dirty.items() if v > 1.e-300 }
+
+    # Initialize the output
     ptw = dict()
     avg = dict()
+
+    # Compute and store the (+, -, +-) atoms
     for rlz in pdf.keys():
         ptw[rlz] = dict()
         for alpha in achain:
@@ -156,6 +185,7 @@ def jxpid(n, pdf, chld, achain, printing=True):
             ptw[rlz][alpha] = (piplus, piminus, piplus - piminus)
         #^ for
     #^ for
+    # compute and store the average of the (+, -, +-) atoms 
     for alpha in achain:
         avgplus = 0.
         avgminus = 0.
@@ -167,6 +197,8 @@ def jxpid(n, pdf, chld, achain, printing=True):
             avg[alpha] = (avgplus, avgminus, avgdiff)
         #^ for
     #^ for
+
+    # Print the result if asked
     if printing:
         table = PrettyTable()
         table.field_names = ["RLZ", "Atom", "pi+", "pi-", "pi"]
