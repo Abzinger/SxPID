@@ -82,7 +82,7 @@ def marg(pdf, rlz, uset):
     return summ
 #^ marg()
     
-def prob(pdf, rlz, gamma, target=False):
+def prob(n, pdf, rlz, gamma, target=False):
     m = len(gamma)
     pset = powerset(m)
     summ = 0
@@ -140,7 +140,7 @@ def pi_plus(n, pdf, rlz, alpha, chld, achain):
 #^ pi_plus()
 
 def pi_minus(n, pdf, rlz, alpha, chld, achain):
-    diffs = differs(self, pdf, rlz, alpha, chld[alpha], True)
+    diffs = differs(n, pdf, rlz, alpha, chld[alpha], True)
     if chld[alpha] == []:
         return np.dot(sgn(len(chld[alpha])), np.log2(vec(len(chld[alpha]),diffs)))
     else:
@@ -158,7 +158,7 @@ def pid(n, pdf_dirty, chld, achain, printing=False):
         sum_p = 0.
         for k,v in pdf_dirty.items():
             assert type(k) is tuple,                              "jx_pid.pid(pdf, chld, achain): pdf's keys must be tuples"
-            assert len(k) < 5,                                    "jx_pid.pid(pdf, chld, achain): pdf's keys must be tuples of length at most 4"
+            assert len(k) < 6,                                    "jx_pid.pid(pdf, chld, achain): pdf's keys must be tuples of length at most 5"
             assert type(v) is float or ( type(v)==int and v==0 ), "jx_pid.pid(pdf, chld, achain): pdf's values must be floats"
             assert v >-.1,                                        "jx_pid.pid(pdf, chld, achain): pdf's values must be nonnegative"
             sum_p += v
@@ -303,7 +303,7 @@ for gate in gates.keys():
     print("The JxPID for the ", gate, " :")
     print("***********************************")
     itic = time.process_time()
-    jxpid(n, gates[gate], chld, achain, True)
+    pid(n, gates[gate], chld, achain, True)
     itoc = time.process_time()
     print("time: ", itoc - itic, "secs")
 
@@ -330,7 +330,7 @@ trihashgate[(1,1,0,0)] = 0.125
 trihashgate[(1,1,1,1)] = 0.125
 
 itic = time.process_time()
-jxpid(n, trihashgate, chld, achain, True)
+pid(n, trihashgate, chld, achain, True)
 itoc = time.process_time()
 print("time: ", itoc - itic, "secs")
 
@@ -364,6 +364,6 @@ quadhashgate[(1,1,1,0,1)] = 1/16
 quadhashgate[(1,1,1,1,0)] = 1/16
 
 itic = time.process_time()
-jxpid(n, quadhashgate, chld, achain, True)
+pid(n, quadhashgate, chld, achain, True)
 itoc = time.process_time()
 print("time: ", itoc - itic, "secs")
