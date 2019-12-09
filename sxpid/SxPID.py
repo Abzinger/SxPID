@@ -5,6 +5,7 @@ import numpy as np
 import math
 import time
 from itertools import chain, combinations
+from collections import defaultdict
 from prettytable import PrettyTable
 
 #---------
@@ -174,7 +175,7 @@ def pid(n, pdf_dirty, chld, achain, printing=False):
 
     # Initialize the output
     ptw = dict()
-    avg = dict()
+    avg = defaultdict(lambda: 0.)
 
     # Compute and store the (+, -, +-) atoms
     for rlz in pdf.keys():
@@ -183,20 +184,23 @@ def pid(n, pdf_dirty, chld, achain, printing=False):
             piplus = pi_plus(n, pdf, rlz, alpha, chld, achain)
             piminus = pi_minus(n, pdf, rlz, alpha, chld, achain)
             ptw[rlz][alpha] = (piplus, piminus, piplus - piminus)
+            avg[alpha][0] += pdf[rlz]*ptw[rlz][alpha][0]
+            avg[alpha][1] += pdf[rlz]*ptw[rlz][alpha][1]
+            avg[alpha][2] += pdf[rlz]*ptw[rlz][alpha][2]
         #^ for
     #^ for
-    # compute and store the average of the (+, -, +-) atoms 
-    for alpha in achain:
-        avgplus = 0.
-        avgminus = 0.
-        avgdiff = 0.
-        for rlz in pdf.keys():
-            avgplus  += pdf[rlz]*ptw[rlz][alpha][0]
-            avgminus += pdf[rlz]*ptw[rlz][alpha][1]
-            avgdiff  += pdf[rlz]*ptw[rlz][alpha][2]
-            avg[alpha] = (avgplus, avgminus, avgdiff)
-        #^ for
-    #^ for
+    # # compute and store the average of the (+, -, +-) atoms 
+    # for alpha in achain:
+    #     avgplus = 0.
+    #     avgminus = 0.
+    #     avgdiff = 0.
+    #     for rlz in pdf.keys():
+    #         avgplus  += pdf[rlz]*ptw[rlz][alpha][0]
+    #         avgminus += pdf[rlz]*ptw[rlz][alpha][1]
+    #         avgdiff  += pdf[rlz]*ptw[rlz][alpha][2]
+    #         avg[alpha] = (avgplus, avgminus, avgdiff)
+    #     #^ for
+    # #^ for
 
     # Print the result if asked
     if printing:
