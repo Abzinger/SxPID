@@ -1,9 +1,9 @@
 # test_gates.py
 
 from sys import path
-path.insert(0,"../jxpid")
+path.insert(0,"../sxpid")
 
-import JxPID
+import SxPID
 
 import time
 #--------
@@ -15,7 +15,7 @@ import time
 
 # Bivariate
 n = 2
-lattice = JxPID.Lattice(n)
+lattice = SxPID.Lattice(n)
 achain = lattice.antichain()
 chld = dict()
 for alpha in achain:
@@ -44,10 +44,24 @@ unqgate[(0,1,0)] = 0.25
 unqgate[(1,0,1)] = 0.25
 unqgate[(1,1,1)] = 0.25
 
+# PwUnq
+pwunqgate = dict()
+pwunqgate[(0,1,1)] = 0.25
+pwunqgate[(1,0,1)] = 0.25
+pwunqgate[(0,2,2)] = 0.25
+pwunqgate[(2,0,2)] = 0.25
+
 # Rnd
 rndgate = dict()
 rndgate[(0,0,0)] = 0.5
 rndgate[(1,1,1)] = 0.5
+
+# RndErr
+rnderrgate = dict()
+rnderrgate[(0,0,0)] = 3/8
+rnderrgate[(1,1,1)] = 3/8
+rnderrgate[(0,1,0)] = 1/8
+rnderrgate[(1,0,1)] = 1/8
 
 # Copy
 copygate = dict()
@@ -56,19 +70,37 @@ copygate[(0,1,(0,1))] = 0.25
 copygate[(1,0,(1,0))] = 0.25
 copygate[(1,1,(1,1))] = 0.25
 
+# (S1, XOR)
+copyxorgate = dict()
+copyxorgate[(0,0,(0,0))] = 0.25
+copyxorgate[(0,1,(0,1))] = 0.25
+copyxorgate[(1,0,(1,1))] = 0.25
+copyxorgate[(1,1,(1,0))] = 0.25
+
+# (S2, Xor)
+xorcopygate = dict()
+xorcopygate[(0,0,(0,0))] = 0.25
+xorcopygate[(0,1,(1,1))] = 0.25
+xorcopygate[(1,0,(0,1))] = 0.25
+xorcopygate[(1,1,(1,0))] = 0.25
+
 gates = dict()
 gates["Xor"]  = xorgate
 gates["And"]  = andgate
 gates["Unq"]  = unqgate
+gates["PwUnq"]  = pwunqgate
 gates["Rnd"]  = rndgate
+gates["RndErr"]  = rnderrgate
 gates["Copy"] = copygate
+gates["(S1,Xor)"] = copyxorgate
+gates["(S2,Xor)"] = xorcopygate
 
 for gate in gates.keys():
     print("***********************************")
     print("The JxPID for the ", gate, " :")
     print("***********************************")
     itic = time.process_time()
-    JxPID.pid(n, gates[gate], chld, achain, True)
+    SxPID.pid(n, gates[gate], chld, achain, True)
     itoc = time.process_time()
     print("time: ", itoc - itic, "secs")
 
@@ -76,7 +108,7 @@ for gate in gates.keys():
 
 # # Trivariate
 n = 3
-lattice = JxPID.Lattice(n)
+lattice = SxPID.Lattice(n)
 achain = lattice.antichain()
 chld = dict()
 for alpha in achain:
@@ -95,14 +127,14 @@ trihashgate[(1,1,0,0)] = 0.125
 trihashgate[(1,1,1,1)] = 0.125
 
 itic = time.process_time()
-JxPID.pid(n, trihashgate, chld, achain, True)
+SxPID.pid(n, trihashgate, chld, achain, True)
 itoc = time.process_time()
 print("time: ", itoc - itic, "secs")
 
 
 # Quadvariate
 n = 4
-lattice = JxPID.Lattice(n)
+lattice = SxPID.Lattice(n)
 achain = lattice.antichain()
 chld = dict()
 for alpha in achain:
@@ -129,6 +161,6 @@ quadhashgate[(1,1,1,0,1)] = 1/16
 quadhashgate[(1,1,1,1,0)] = 1/16
 
 itic = time.process_time()
-JxPID.pid(n, quadhashgate, chld, achain, True)
+SxPID.pid(n, quadhashgate, chld, achain, True)
 itoc = time.process_time()
 print("time: ", itoc - itic, "secs")

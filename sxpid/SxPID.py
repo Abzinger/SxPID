@@ -172,7 +172,9 @@ def pid(n, pdf_dirty, chld, achain, printing=False):
     # Remove the impossible realization
     pdf = {k:v for k,v in pdf_dirty.items() if v > 1.e-300 }
 
-    # Initialize the output
+    # Initialize the output where
+    # ptw = { rlz -> { alpha -> pi_alpha } }
+    # avg = { alpha -> PI_alpha }
     ptw = dict()
     avg = dict()
 
