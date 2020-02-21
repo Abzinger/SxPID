@@ -151,6 +151,33 @@ def pi_minus(n, pdf, rlz, alpha, chld, achain):
 
 
 def pid(n, pdf_dirty, chld, achain, printing=False):
+    """Estimate partial information decomposition for two inputs and one output
+    
+    Implementation of the partial information decomposition (PID) estimator for
+    discrete data. The estimator finds shared information, unique information
+    and synergistic information between the two, three, or four inputs with respect
+    to the output t.
+    
+    P.S. The implementation can be extended to any number n of variables if their 
+    corresponding redundancy lattice is provided (check the class Lattice())
+
+    Args:
+            n : int
+               number of sources
+            pdf_dirty : dict
+                       the joint distribution of the inputs and the output 
+                       (realizations are the keys)
+            chld : dict
+                  list of children for each node in the redundancy lattice 
+                   (nodes are the keys)
+            achain : tuple
+                    tuple of all the nodes (tuple) in the redundacy lattice
+            printing: Bool
+                     If true prints the results using PrettyTables
+        Returns:
+            tuple
+                pointwise decomposition, averaged decomposition
+    """
     assert type(pdf_dirty) is dict, "jx_pid.pid(pdf, chld, achain): pdf must be a dictionary"
     assert type(chld) is dict, "jx_pid.pid(pdf, chld, achain): chld must be a dictionary"
     assert type(achain) is list, "jx_pid.pid(pdf, chld, achain): pdf must be a list"
@@ -165,7 +192,7 @@ def pid(n, pdf_dirty, chld, achain, printing=False):
             sum_p += v
         #^ for
 
-        assert abs(sum_p - 1) < 1.e-10,                           "jx_pid.pid(pdf, chld, achain): pdf's keys must sum up to 1 (tolerance of precision is 1.e-10)"
+        assert abs(sum_p - 1) < 1.e-7,                           "jx_pid.pid(pdf, chld, achain): pdf's keys must sum up to 1 (tolerance of precision is 1.e-7)"
     #^ if debug
 
     assert type(printing) is bool,                                "jx_pid.pid(pdf, chld, achain, printing): printing must be a bool"
@@ -177,8 +204,8 @@ def pid(n, pdf_dirty, chld, achain, printing=False):
     # ptw = { rlz -> { alpha -> pi_alpha } }
     # avg = { alpha -> PI_alpha }
     ptw = dict()
-    avg = defaultdict(lambda: 0.)
-
+    #avg = defaultdict(lambda : [0.,0.,0.])
+    avg = dict()
     # Compute and store the (+, -, +-) atoms
     for rlz in pdf.keys():
         ptw[rlz] = dict()
@@ -186,23 +213,24 @@ def pid(n, pdf_dirty, chld, achain, printing=False):
             piplus = pi_plus(n, pdf, rlz, alpha, chld, achain)
             piminus = pi_minus(n, pdf, rlz, alpha, chld, achain)
             ptw[rlz][alpha] = (piplus, piminus, piplus - piminus)
-            avg[alpha][0] += pdf[rlz]*ptw[rlz][alpha][0]
-            avg[alpha][1] += pdf[rlz]*ptw[rlz][alpha][1]
-            avg[alpha][2] += pdf[rlz]*ptw[rlz][alpha][2]
+            # avg[alpha][0] += pdf[rlz]*ptw[rlz][alpha][0]
+            # avg[alpha][1] += pdf[rlz]*ptw[rlz][alpha][1]
+            # avg[alpha][2] += pdf[rlz]*ptw[rlz][alpha][2]
+             
         #^ for
     #^ for
-    # # compute and store the average of the (+, -, +-) atoms 
-    # for alpha in achain:
-    #     avgplus = 0.
-    #     avgminus = 0.
-    #     avgdiff = 0.
-    #     for rlz in pdf.keys():
-    #         avgplus  += pdf[rlz]*ptw[rlz][alpha][0]
-    #         avgminus += pdf[rlz]*ptw[rlz][alpha][1]
-    #         avgdiff  += pdf[rlz]*ptw[rlz][alpha][2]
-    #         avg[alpha] = (avgplus, avgminus, avgdiff)
-    #     #^ for
-    # #^ for
+    # compute and store the average of the (+, -, +-) atoms 
+    for alpha in achain:
+        avgplus = 0.
+        avgminus = 0.
+        avgdiff = 0.
+        for rlz in pdf.keys():
+            avgplus  += pdf[rlz]*ptw[rlz][alpha][0]
+            avgminus += pdf[rlz]*ptw[rlz][alpha][1]
+            avgdiff  += pdf[rlz]*ptw[rlz][alpha][2]
+            avg[alpha] = (avgplus, avgminus, avgdiff)
+        #^ for
+    #^ for
 
     # Print the result if asked
     if printing:

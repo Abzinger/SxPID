@@ -137,18 +137,15 @@ Where: t    is the size of the range of T;
     #^ if
 
     # Compute PID for randomly sampled pdfs
-    lattice = SxPID.Lattice(3)
-    achain = lattice.antichain()
-    chld = dict()
-    for alpha in achain:
-        chld[alpha] = lattice.children(alpha, achain)
-    #^ for
-
-    Npid = compute_pid(nT,nX,nY,nZ,maxiter, chld, achain)
+    f = open("../sxpid/lattices.pkl", "rb")
+    lattices = pickle.load(f)
+    Npid = compute_pid(nT,nX,nY,nZ,maxiter, lattices[3][0], lattices[3][1])
     print("list of pdfs w/ negative PID", Npid)
 #^ Main()
 
+#--------
 # Run It!
+#--------
 Main(argv)
 
 #EOF
