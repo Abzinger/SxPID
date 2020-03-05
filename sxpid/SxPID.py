@@ -27,7 +27,8 @@ class Lattice:
     #^ powerset()
 
     def less_than(self, beta, alpha):
-        # compare whether an antichain beta is smaller than antichain alpha
+        """compare whether an antichain beta is smaller than antichain          
+        alpha"""
         return all(any(frozenset(b) <= frozenset(a) for b in beta) for a in alpha)
     #^ compare()
 
@@ -36,8 +37,9 @@ class Lattice:
     #^ comparable()
 
     def antichain(self):
+        """Generates the nodes (antichains) of the lattice"""
         # dummy expensive function might use dit or networkx functions
-        # assert self.n < 5, "antichain(n): number of sources should be less than 5"
+        assert self.n < 5, "antichain(n): number of sources should be less than 5"
         achain = []
         for r in range(1, math.floor((2**self.n - 1)/2) + 2):
             # enumerate the power set of the powerset
@@ -56,6 +58,8 @@ class Lattice:
     #^ antichain()
 
     def children(self, alpha, achain):
+        """Enumerates the direct nodes (antichains) ordered by the node         
+        (antichain) 'alpha'"""
         chl = []
         downset = [beta for beta in achain if self.less_than(beta,alpha) and beta != alpha]
         for beta in downset:
@@ -80,6 +84,8 @@ def powerset(m):
 #^ powerset()
 
 def marg(pdf, rlz, uset):
+    """compute the marginal probability mass                                    
+    e.g. p(t,s1,s2)"""
     idxs = [ idx - 1 for idx in list(uset)]
     summ = 0.
     for k in pdf.keys():
@@ -89,6 +95,8 @@ def marg(pdf, rlz, uset):
 #^ marg()
     
 def prob(n, pdf, rlz, gamma, target=False):
+    """Compute the Probability mass on a  lattice node                          
+    e.g. node = {1}{2} p(s1 \cup s2) using inclusion-exclusion"""
     m = len(gamma)
     pset = powerset(m)
     summ = 0
@@ -107,6 +115,9 @@ def prob(n, pdf, rlz, gamma, target=False):
 #^ prob()
 
 def differs(n, pdf, rlz, alpha, chl, target=False):
+    """Compute the probability mass difference                                  
+    For a node 'alpha' and any child gamma of alpha it computes p(gamma) -      
+    p(alpha) for all gamma"""
     if chl == [] and target:
         base = prob(n, pdf, rlz, [()], target)/prob(n, pdf, rlz, alpha, target)
     else:
@@ -118,6 +129,8 @@ def differs(n, pdf, rlz, alpha, chl, target=False):
 #^ differs()
 
 def sgn(num_chld):
+    """Recurrsive function that generates the signs (+ or -) for the            
+       inclusion-exculison principle"""
     if num_chld == 0:
         return np.array([+1])
     else:
@@ -128,8 +141,9 @@ def sgn(num_chld):
 def vec(num_chld, diffs):
     """
     Args: 
-    num_chld : the number of the children of alpha: (gamma_1,...,gamma_{num_chld}) 
-    diffs : vector of probability differences (d_i)_i where d_i = p(gamma_i) - p(alpha) and d_0 = p(alpha)  
+      num_chld : the number of the children of alpha: (gamma_1,...,gamma_{num_chld}) 
+      diffs : vector of probability differences 
+              (d_i)_i where d_i = p(gamma_i) - p(alpha) and d_0 = p(alpha)  
     """
     # print(diffs)
     if num_chld == 0:
@@ -141,11 +155,13 @@ def vec(num_chld, diffs):
 #^ vec()
 
 def pi_plus(n, pdf, rlz, alpha, chld, achain):
+     """Compute the informative PPID """
     diffs = differs(n, pdf, rlz, alpha, chld[tuple(alpha)], False)
     return np.dot(sgn(len(chld[alpha])), -np.log2(vec(len(chld[alpha]),diffs)))
 #^ pi_plus()
 
 def pi_minus(n, pdf, rlz, alpha, chld, achain):
+    """Compute the misinformative PPID """
     diffs = differs(n, pdf, rlz, alpha, chld[alpha], True)
     if chld[alpha] == []:
         return np.dot(sgn(len(chld[alpha])), np.log2(vec(len(chld[alpha]),diffs)))
@@ -156,33 +172,34 @@ def pi_minus(n, pdf, rlz, alpha, chld, achain):
 
 
 def pid(n, pdf_dirty, chld, achain, printing=False):
-    """Estimate partial information decomposition for two inputs and one output
-    
+    """Estimate partial information decomposition for 'n' inputs and one output
+                                                                                
     Implementation of the partial information decomposition (PID) estimator for
-    discrete data. The estimator finds shared information, unique information
-    and synergistic information between the two, three, or four inputs with respect
-    to the output t.
-    
-    P.S. The implementation can be extended to any number n of variables if their 
-    corresponding redundancy lattice is provided (check the class Lattice())
-
-    Args:
-            n : int
-               number of sources
-            pdf_dirty : dict
-                       the joint distribution of the inputs and the output 
-                       (realizations are the keys)
-            chld : dict
-                  list of children for each node in the redundancy lattice 
-                   (nodes are the keys)
-            achain : tuple
-                    tuple of all the nodes (tuple) in the redundacy lattice
-            printing: Bool
-                     If true prints the results using PrettyTables
-        Returns:
-            tuple
-                pointwise decomposition, averaged decomposition
+    discrete data. The estimator finds shared information, unique information   
+    and synergistic information between the two, three, or four inputs with     
+    respect to the output t.                                                    
+                                                                                
+    P.S. The implementation can be extended to any number 'n' of variables if   
+    their corresponding redundancy lattice is provided ( check Lattice() )      
+                                                                                
+    Args:                                                                       
+            n : int - number of pid sources                                     
+            pdf_orig : dict - the original joint distribution of the inputs and\
+                                                                                
+                       the output (realizations are the keys). It doesn't have 
+                       to be a full support distribution, i.e., it can contain  
+                       realizations with 'zero' mass probability                
+            chld : dict - list of children for each node in the redundancy      
+                   lattice (nodes are the keys)                                 
+            achain : tuple - tuple of all the nodes (antichains) in the         
+                     redundacy lattice
+            printing: Bool - If true prints the results using PrettyTables      
+                                                                                
+    Returns:                                                                    
+            tuple                                                               
+                pointwise decomposition, averaged decomposition                 
     """
+    
     assert type(pdf_dirty) is dict, "jx_pid.pid(pdf, chld, achain): pdf must be a dictionary"
     assert type(chld) is dict, "jx_pid.pid(pdf, chld, achain): chld must be a dictionary"
     assert type(achain) is list, "jx_pid.pid(pdf, chld, achain): pdf must be a list"
