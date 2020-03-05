@@ -1,6 +1,7 @@
-"""A
-JxPID
+"""                                                                             
+Shared exclusion partial information decomposition (SxPID)                      
 """
+
 import numpy as np
 import math
 import time
@@ -12,6 +13,10 @@ from prettytable import PrettyTable
 # Lattice 
 #---------
 class Lattice:
+    """Generates the redundancy lattice for 'n' sources                         
+    The algerbric structure on which partial information decomposition is       
+    build on.                                                                   
+    """
     def __init__(self, n):
         self.n = n
         self.lis = [i for i in range(1,self.n+1)]
