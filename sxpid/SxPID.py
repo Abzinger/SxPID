@@ -156,8 +156,8 @@ def vec(num_chld, diffs):
 
 def pi_plus(n, pdf, rlz, alpha, chld, achain):
      """Compute the informative PPID """
-    diffs = differs(n, pdf, rlz, alpha, chld[tuple(alpha)], False)
-    return np.dot(sgn(len(chld[alpha])), -np.log2(vec(len(chld[alpha]),diffs)))
+     diffs = differs(n, pdf, rlz, alpha, chld[tuple(alpha)], False)
+     return np.dot(sgn(len(chld[alpha])), -np.log2(vec(len(chld[alpha]),diffs)))
 #^ pi_plus()
 
 def pi_minus(n, pdf, rlz, alpha, chld, achain):
@@ -171,7 +171,7 @@ def pi_minus(n, pdf, rlz, alpha, chld, achain):
 #^ pi_minus()
 
 
-def pid(n, pdf_dirty, chld, achain, printing=False):
+def pid(n, pdf_orig, chld, achain, printing=False):
     """Estimate partial information decomposition for 'n' inputs and one output
                                                                                 
     Implementation of the partial information decomposition (PID) estimator for
@@ -184,43 +184,42 @@ def pid(n, pdf_dirty, chld, achain, printing=False):
                                                                                 
     Args:                                                                       
             n : int - number of pid sources                                     
-            pdf_orig : dict - the original joint distribution of the inputs and\
-                                                                                
-                       the output (realizations are the keys). It doesn't have 
-                       to be a full support distribution, i.e., it can contain  
-                       realizations with 'zero' mass probability                
-            chld : dict - list of children for each node in the redundancy      
-                   lattice (nodes are the keys)                                 
-            achain : tuple - tuple of all the nodes (antichains) in the         
+            pdf_orig : dict - the original joint distribution of the inputs and
+                       the output (realizations are the keys). It doesn't have
+                       to be a full support distribution, i.e., it can contain
+                       realizations with 'zero' mass probability
+            chld : dict - list of children for each node in the redundancy
+                   lattice (nodes are the keys)      
+            achain : tuple - tuple of all the nodes (antichains) in the
                      redundacy lattice
-            printing: Bool - If true prints the results using PrettyTables      
+            printing: Bool - If true prints the results using PrettyTables
                                                                                 
     Returns:                                                                    
             tuple                                                               
                 pointwise decomposition, averaged decomposition                 
     """
     
-    assert type(pdf_dirty) is dict, "jx_pid.pid(pdf, chld, achain): pdf must be a dictionary"
-    assert type(chld) is dict, "jx_pid.pid(pdf, chld, achain): chld must be a dictionary"
-    assert type(achain) is list, "jx_pid.pid(pdf, chld, achain): pdf must be a list"
+    assert type(pdf_orig) is dict, "SxPID.pid(pdf, chld, achain): pdf must be a dictionary"
+    assert type(chld) is dict, "SxPID.pid(pdf, chld, achain): chld must be a dictionary"
+    assert type(achain) is list, "SxPID.pid(pdf, chld, achain): pdf must be a list"
 
     if __debug__:
         sum_p = 0.
-        for k,v in pdf_dirty.items():
-            assert type(k) is tuple,                              "jx_pid.pid(pdf, chld, achain): pdf's keys must be tuples"
-            assert len(k) < 6,                                    "jx_pid.pid(pdf, chld, achain): pdf's keys must be tuples of length at most 5"
-            assert type(v) is float or ( type(v)==int and v==0 ), "jx_pid.pid(pdf, chld, achain): pdf's values must be floats"
-            assert v >-.1,                                        "jx_pid.pid(pdf, chld, achain): pdf's values must be nonnegative"
+        for k,v in pdf_orig.items():
+            assert type(k) is tuple,                              "SxPID.pid(pdf, chld, achain): pdf's keys must be tuples"
+            assert len(k) < 6,                                    "SxPID.pid(pdf, chld, achain): pdf's keys must be tuples of length at most 5"
+            assert type(v) is float or ( type(v)==int and v==0 ), "SxPID.pid(pdf, chld, achain): pdf's values must be floats"
+            assert v >-.1,                                        "SxPID.pid(pdf, chld, achain): pdf's values must be nonnegative"
             sum_p += v
         #^ for
 
-        assert abs(sum_p - 1) < 1.e-7,                           "jx_pid.pid(pdf, chld, achain): pdf's keys must sum up to 1 (tolerance of precision is 1.e-7)"
+        assert abs(sum_p - 1) < 1.e-7,                           "SxPID.pid(pdf, chld, achain): pdf's keys must sum up to 1 (tolerance of precision is 1.e-7)"
     #^ if debug
 
-    assert type(printing) is bool,                                "jx_pid.pid(pdf, chld, achain, printing): printing must be a bool"
+    assert type(printing) is bool,                                "SxPID.pid(pdf, chld, achain, printing): printing must be a bool"
 
     # Remove the impossible realization
-    pdf = {k:v for k,v in pdf_dirty.items() if v > 1.e-300 }
+    pdf = {k:v for k,v in pdf_orig.items() if v > 1.e-300 }
 
     # Initialize the output where
     # ptw = { rlz -> { alpha -> pi_alpha } }
