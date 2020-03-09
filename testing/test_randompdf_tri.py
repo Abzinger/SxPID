@@ -17,7 +17,7 @@ import pickle
 #          x    is the size of the range of X;
 #          y    is the size of the range of Y;
 #          z    is the size of the range of Z;
-#          iter is the number of iterations
+#          iter is the number of pdfs
 #                   (defaults to 250).
 
 
@@ -60,7 +60,7 @@ def compute_pid(nT, nX, nY, nZ, maxiter, chld, achain):
         #^ for t
 
         # Compute PID
-        print("Run Chicharro_PID.pid().")
+        print("Run SxPID.pid().")
         itic = time.time()
         ptw,avg = SxPID.pid(3, pdf, chld, achain, printing=False)       
         itoc = time.time()
@@ -100,7 +100,7 @@ def compute_pid(nT, nX, nY, nZ, maxiter, chld, achain):
 
 def Main(sys_argv):
     print("\ntest_randompdf_tri.py -- part of SxPID (https://github.com/Abzinger/SxPID/)\n")
-    if len(argv) < 5 or len(argv)>6:
+    if len(sys_argv) < 5 or len(sys_argv) > 6:
     
         msg="""Usage: python3 test_large_randompdf.py t x y z [iter]
 
@@ -108,18 +108,18 @@ Where: t    is the size of the range of T;
        x    is the size of the range of X;
        y    is the size of the range of Y;
        z    is the size of the range of Z;
-       iter is the number of iterations  ;
+       iter is the number of pdfs  ;
                         (defaults to 250)."""
         print(msg)
         exit(0)
     #^ if
 
     try:
-        nT = int(argv[1])
-        nX = int(argv[2])
-        nY = int(argv[3])
-        nZ = int(argv[4])
-        if len(argv)==6:    maxiter = int(argv[5])
+        nT = int(sys_argv[1])
+        nX = int(sys_argv[2])
+        nY = int(sys_argv[3])
+        nZ = int(sys_argv[4])
+        if len(sys_argv)==6:    maxiter = int(sys_argv[5])
         else:               maxiter = 250
     except:
         print("I couldn't parse one of the arguments (they must all be integers)")
