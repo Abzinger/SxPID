@@ -46,24 +46,10 @@ unqgate[(0,1,0)] = 0.25
 unqgate[(1,0,1)] = 0.25
 unqgate[(1,1,1)] = 0.25
 
-# PwUnq
-pwunqgate = dict()
-pwunqgate[(0,1,1)] = 0.25
-pwunqgate[(1,0,1)] = 0.25
-pwunqgate[(0,2,2)] = 0.25
-pwunqgate[(2,0,2)] = 0.25
-
 # Rnd
 rndgate = dict()
 rndgate[(0,0,0)] = 0.5
 rndgate[(1,1,1)] = 0.5
-
-# RndErr
-rnderrgate = dict()
-rnderrgate[(0,0,0)] = 3/8
-rnderrgate[(1,1,1)] = 3/8
-rnderrgate[(0,1,0)] = 1/8
-rnderrgate[(1,0,1)] = 1/8
 
 # Copy
 copygate = dict()
@@ -85,6 +71,22 @@ xorcopygate[(0,0,(0,0))] = 0.25
 xorcopygate[(0,1,(1,1))] = 0.25
 xorcopygate[(1,0,(0,1))] = 0.25
 xorcopygate[(1,1,(1,0))] = 0.25
+
+# PwUnq
+pwunqgate = dict()
+pwunqgate[(0,1,1)] = 0.25
+pwunqgate[(1,0,1)] = 0.25
+pwunqgate[(0,2,2)] = 0.25
+pwunqgate[(2,0,2)] = 0.25
+
+
+# RndErr
+rnderrgate = dict()
+rnderrgate[(0,0,0)] = 3/8
+rnderrgate[(1,1,1)] = 3/8
+rnderrgate[(0,1,0)] = 1/8
+rnderrgate[(1,0,1)] = 1/8
+
 
 # RndUnqXor
 rndunqxorgate = dict()
@@ -128,7 +130,7 @@ rndunqxorgate[(('R','A',0),('R','B',1),('R','A','B',1))] = 1/32
 rndunqxorgate[(('R','A',1),('R','B',0),('R','A','B',1))] = 1/32
 rndunqxorgate[(('R','A',1),('R','B',1),('R','A','B',0))] = 1/32
 
-# Sum
+# Sum (N.B. equivalent to XorAnd)
 sumgate = dict()
 sumgate[(0,0,0)] = 1/4
 sumgate[(0,1,1)] = 1/4
@@ -141,7 +143,7 @@ reduorgate[(0,0,0)] = 1/2
 reduorgate[(0,1,1)] = 1/4
 reduorgate[(1,0,1)] = 1/4
 
-# Rnd Xor
+# RndXor
 rndxorgate = dict()
 rndxorgate[(('r',0),('r',0),('r',0))] = 1/8
 rndxorgate[(('r',0),('r',1),('r',1))] = 1/8
@@ -152,6 +154,32 @@ rndxorgate[(('R',0),('R',0),('R',0))] = 1/8
 rndxorgate[(('R',0),('R',1),('R',1))] = 1/8
 rndxorgate[(('R',1),('R',0),('R',1))] = 1/8
 rndxorgate[(('R',1),('R',1),('R',0))] = 1/8
+
+# Williams Beer 2010 examples
+
+# Example A
+wbAgate = dict()
+wbAgate[(0,0,0)] = 1/3
+wbAgate[(0,1,1)] = 1/3
+wbAgate[(1,0,2)] = 1/3
+
+# Example B
+wbBgate = dict()
+wbBgate[(0,0,0)] = 1/4
+wbBgate[(0,1,1)] = 1/4
+wbBgate[(1,0,2)] = 1/4
+wbBgate[(1,1,1)] = 1/4
+
+
+# Example C
+wbCgate = dict()
+wbCgate[(0,0,0)] = 1/6
+wbCgate[(0,1,1)] = 1/6
+wbCgate[(0,1,2)] = 1/6
+wbCgate[(1,0,2)] = 1/6
+wbCgate[(1,1,0)] = 1/6
+wbCgate[(1,1,1)] = 1/6
+
 
 gates = dict()
 gates["Xor"]  = xorgate
@@ -167,16 +195,21 @@ gates["RndUnqXor"] = rndunqxorgate
 gates["Sum"] = sumgate
 gates["ReduOr"] = reduorgate
 gates["RndXor"] = rndxorgate
+gates["Williams-Beer-A"] = wbAgate
+gates["Williams-Beer-B"] = wbBgate
+gates["Williams-Beer-C"] = wbCgate
 
+print("+++++++++++++++++++++++++++++++++++++++++++++")
+print("The SxPID for Bivariate gates (T: S_1, S_2) :")
+print("+++++++++++++++++++++++++++++++++++++++++++++\n\n")
 for gate in gates.keys():
-    print("***********************************")
+    print("**************************************")
     print("The SxPID for the ", gate, " :")
-    print("***********************************")
+    print("**************************************")
     itic = time.process_time()
     SxPID.pid(n, gates[gate], lattices[n][0], lattices[n][1], True)
     itoc = time.process_time()
     print("time: ", itoc - itic, "secs")
-
 #^ for gate
 
 # # NXor
@@ -205,22 +238,95 @@ n = 3
 
 # Trihash
 trihashgate = dict()
-trihashgate[(0,0,0,0)] = 0.125
-trihashgate[(0,0,1,1)] = 0.125
-trihashgate[(0,1,0,1)] = 0.125
-trihashgate[(0,1,1,0)] = 0.125
-trihashgate[(1,0,0,1)] = 0.125
-trihashgate[(1,0,1,0)] = 0.125
-trihashgate[(1,1,0,0)] = 0.125
-trihashgate[(1,1,1,1)] = 0.125
+trihashgate[(0,0,0,0)] = 1/8
+trihashgate[(0,0,1,1)] = 1/8
+trihashgate[(0,1,0,1)] = 1/8
+trihashgate[(0,1,1,0)] = 1/8
+trihashgate[(1,0,0,1)] = 1/8
+trihashgate[(1,0,1,0)] = 1/8
+trihashgate[(1,1,0,0)] = 1/8
+trihashgate[(1,1,1,1)] = 1/8
 
-print("***********************************")
-print("The SxPID for the three bit hash:")
-print("***********************************")
-itic = time.process_time()
-SxPID.pid(n, trihashgate, lattices[n][0], lattices[n][1], True)
-itoc = time.process_time()
-print("time: ", itoc - itic, "secs")
+# TriRnd
+trirndgate = dict()
+trirndgate[(0,0,0,0)] = 1/2
+trirndgate[(1,1,1,1)] = 1/2
+
+# DblXor T = (S_1 Xor S_2 , S_2 Xor S_3)
+dblxorgate = dict()
+dblxorgate[(0,0,0,(0,0))] = 1/8
+dblxorgate[(0,0,1,(0,1))] = 1/8
+dblxorgate[(0,1,0,(1,1))] = 1/8
+dblxorgate[(0,1,1,(1,0))] = 1/8
+dblxorgate[(1,0,0,(1,0))] = 1/8
+dblxorgate[(1,0,1,(1,1))] = 1/8
+dblxorgate[(1,1,0,(0,1))] = 1/8
+dblxorgate[(1,1,1,(0,0))] = 1/8
+
+# Tri XorCopy T = (S_1, S_2, S_1 Xor S_2)
+trixorcopygate = dict()
+trixorcopygate[(0,0,0,(0,0,0))] = 1/4
+trixorcopygate[(0,1,1,(0,1,1))] = 1/4
+trixorcopygate[(1,0,1,(1,0,1))] = 1/4
+trixorcopygate[(1,1,0,(1,1,0))] = 1/4
+
+# XorLoss T = S_3 = S_1 Xor S_2
+xorlossgate = dict()
+xorlossgate[(0,0,0,0)] = 1/4
+xorlossgate[(0,1,1,1)] = 1/4
+xorlossgate[(1,0,1,1)] = 1/4
+xorlossgate[(1,1,0,0)] = 1/4
+
+# XorDuplicate T =  S_1 Xor S_2; S_3 = S_1
+xordupgate = dict()
+xordupgate[(0,0,0,0)] = 1/4
+xordupgate[(0,1,0,1)] = 1/4
+xordupgate[(1,0,1,1)] = 1/4
+xordupgate[(1,1,1,0)] = 1/4
+
+# AndDuplicate T =  S_1 And S_2; S_3 = S_1
+anddupgate = dict()
+anddupgate[(0,0,0,0)] = 1/4
+anddupgate[(0,1,0,0)] = 1/4
+anddupgate[(1,0,1,0)] = 1/4
+anddupgate[(1,1,1,1)] = 1/4
+
+# XorMultiCoal S_1 = (x_1, x_2); S_2 = (x_1, x_3); S_3 = (x_2, x_3);
+# T = x_1 Xor x_2, Xor x_3
+xormulticoalgate = dict()
+xormulticoalgate[(('a','b'),('a','c'),('b','c'),0)] = 1/8
+xormulticoalgate[(('A','B'),('A','c'),('B','c'),0)] = 1/8
+xormulticoalgate[(('A','b'),('A','C'),('b','C'),0)] = 1/8
+xormulticoalgate[(('a','B'),('a','C'),('B','C'),0)] = 1/8
+xormulticoalgate[(('A','b'),('A','c'),('b','c'),1)] = 1/8
+xormulticoalgate[(('a','B'),('a','c'),('B','c'),1)] = 1/8
+xormulticoalgate[(('a','b'),('a','C'),('b','C'),1)] = 1/8
+xormulticoalgate[(('A','B'),('A','C'),('B','C'),1)] = 1/8
+
+
+gates = dict()
+gates["3-bits hash"] = trihashgate
+gates["Giant Bit"] = trirndgate
+gates["DblXor"] = dblxorgate
+gates["XorCopy"] = trixorcopygate
+gates["XorLoss"] = xorlossgate
+gates["XorDuplicate"] = xordupgate
+gates["AndDuplicate"] = anddupgate
+gates["XorMultiCoal"] = xormulticoalgate
+
+print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
+print("The SxPID for Trivariate gates (T: S_1, S_2, S_3) :")
+print("+++++++++++++++++++++++++++++++++++++++++++++++++++\n\n")
+for gate in gates.keys():
+    print("**************************************")
+    print("The SxPID for the ", gate, " :")
+    print("**************************************")
+    itic = time.process_time()
+    SxPID.pid(n, gates[gate], lattices[n][0], lattices[n][1], True)
+    itoc = time.process_time()
+    print("time: ", itoc - itic, "secs")
+
+#^ for gate
 
 
 # Quadvariate
