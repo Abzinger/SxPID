@@ -1,12 +1,10 @@
 # test_gates.py
 
 from sys import path
-path.insert(0,"../sxpid")
+path.insert(0,"./sxpid")
 
-import SxPID
- 
+import SxPID 
 import time
-import pickle 
 #--------
 # Test!
 #-------
@@ -14,22 +12,17 @@ import pickle
 # Format of the pdf is 
 # dict( (s1,s2,t) : p(s1,s2,t) ) for all s1 in S1, s2 in S2, and t in T if p(s1,s2,t) > 0.
 
-
-# Read lattices from a file
-# Pickled as { n -> [{alpha -> children}, (alpha_1,...) ] }
-f = open("../sxpid/lattices.pkl", "rb")
-lattices = pickle.load(f)
-
+verbose = 7
 
 # Bivariate
 n = 2
 
 # Xor
 xorgate = dict()
-xorgate[(0,0,0)] = 0.25
-xorgate[(0,1,1)] = 0.25
-xorgate[(1,0,1)] = 0.25
-xorgate[(1,1,0)] = 0.25
+xorgate[('f','f','f')] = 0.25
+xorgate[('f','t','t')] = 0.25
+xorgate[('t','f','t')] = 0.25
+xorgate[('t','t','f')] = 0.25
 
 
 # And
@@ -202,12 +195,12 @@ gates["Williams-Beer-C"] = wbCgate
 print("+++++++++++++++++++++++++++++++++++++++++++++")
 print("The SxPID for Bivariate gates (T: S_1, S_2) :")
 print("+++++++++++++++++++++++++++++++++++++++++++++\n\n")
-for gate in gates.keys():
+for gate in gates:
     print("**************************************")
     print("The SxPID for the ", gate, " :")
     print("**************************************")
     itic = time.process_time()
-    SxPID.pid(n, gates[gate], lattices[n][0], lattices[n][1], True)
+    SxPID.pid(gates[gate], verbose=verbose)
     itoc = time.process_time()
     print("time: ", itoc - itic, "secs")
 #^ for gate
@@ -317,12 +310,12 @@ gates["XorMultiCoal"] = xormulticoalgate
 print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
 print("The SxPID for Trivariate gates (T: S_1, S_2, S_3) :")
 print("+++++++++++++++++++++++++++++++++++++++++++++++++++\n\n")
-for gate in gates.keys():
+for gate in gates:
     print("**************************************")
     print("The SxPID for the ", gate, " :")
     print("**************************************")
     itic = time.process_time()
-    SxPID.pid(n, gates[gate], lattices[n][0], lattices[n][1], True)
+    SxPID.pid(gates[gate], verbose=verbose)
     itoc = time.process_time()
     print("time: ", itoc - itic, "secs")
 
@@ -355,7 +348,7 @@ print("***********************************")
 print("The SxPID for the four bit hash:")
 print("***********************************")
 itic = time.process_time()
-SxPID.pid(n, quadhashgate, lattices[n][0], lattices[n][1], True)
+SxPID.pid(quadhashgate, verbose=verbose)
 itoc = time.process_time()
 print("time: ", itoc - itic, "secs")
 

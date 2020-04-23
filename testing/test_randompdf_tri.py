@@ -1,7 +1,7 @@
 # test_randompdf_tri.py
 
 from sys import path
-path.insert(0,"../sxpid")
+path.insert(0,"./sxpid")
 
 import SxPID
 
@@ -20,9 +20,7 @@ import pickle
 #          iter is the number of pdfs
 #                   (defaults to 250).
 
-
-
-def compute_pid(nT, nX, nY, nZ, maxiter, chld, achain):
+def compute_pid(nT, nX, nY, nZ, maxiter, achains):
 
     # Lists to store Time and Error for boxplotting
     Ti = []
@@ -42,7 +40,7 @@ def compute_pid(nT, nX, nY, nZ, maxiter, chld, achain):
         print("Random PDFs   with |T| =",nT,"|X| =",nX,"|Y| =",nY," |Z| =",nZ)
         print("______________________________________________________________________")
         print("Create pdf #",iter)
-        pdf = dict()
+        pdf_dict = dict()
         pts = [ random() for j in range(1,nT*nX*nY*nZ) ]
         pts.append(0.)
         pts.sort()
@@ -52,7 +50,7 @@ def compute_pid(nT, nX, nY, nZ, maxiter, chld, achain):
                 for y in range(nY):
                     for z in range(nZ):
                         newval = pts.pop()
-                        pdf[ (t,x,y,z) ] = val - newval
+                        pdf_dict[ (t,x,y,z) ] = val - newval
                         val = newval
                     #^ for z
                 #^ for y
@@ -60,9 +58,11 @@ def compute_pid(nT, nX, nY, nZ, maxiter, chld, achain):
         #^ for t
 
         # Compute PID
+        pdf = SxPID.PDF.from_dict(pdf_dict)
+
         print("Run SxPID.pid().")
         itic = time.time()
-        ptw,avg = SxPID.pid(3, pdf, chld, achain, printing=False)       
+        ptw,avg = SxPID.pid(pdf, no_threads=None)       
         itoc = time.time()
 
         # Print PID details
@@ -74,16 +74,16 @@ def compute_pid(nT, nX, nY, nZ, maxiter, chld, achain):
         Ti.append(itoc - itic)
         
         # Store the index of PID if there is a negative pi_alpha
-        pdf_clean = {k:v for k,v in pdf.items() if v > 1.e-300 }
+        pdf_clean = {k:v for k,v in pdf_dict.items() if v > 1.e-300 }
         for rlz in pdf_clean:
-            for alpha in achain:
+            for alpha in ptw[rlz]:
                 if ptw[rlz][alpha][0] <= -1.e-10 or ptw[rlz][alpha][1] <= -1.e-10:
                     print("Ops! Found a negative inf- or misinf- atom")
                     Npid.append(iter)
                 #^ if neg
             #^ for alpha
         #^ for rlz
-    #^ for iter
+    #^ for iter"""
     toc = time.time()
     # Check Average Time
     print("**********************************************************************")
@@ -137,15 +137,16 @@ Where: t    is the size of the range of T;
     #^ if
 
     # Compute PID for randomly sampled pdfs
-    f = open("../sxpid/lattices.pkl", "rb")
-    lattices = pickle.load(f)
-    Npid = compute_pid(nT,nX,nY,nZ,maxiter, lattices[3][0], lattices[3][1])
+    f = open("./sxpid/lattices.pkl", "rb")
+    lattice = SxPID.load_achain_dict(3)
+    Npid = compute_pid(nT,nX,nY,nZ,maxiter, lattice)
     print("list of pdfs w/ negative PID", Npid)
 #^ Main()
 
 #--------
 # Run It!
 #--------
-Main(argv)
+#Main(argv)
+Main([0, 10, 10, 10, 10, 1])
 
 #EOF
