@@ -1,12 +1,13 @@
 # test_gates.py
 
-from sys import path
-path.insert(0,"../sxpid")
+# from sys import path
+# path.insert(0,"../sxpid")
 
-import SxPID
- 
+from sxpid import SxPID
+from sxpid import lattices as lt 
 import time
-import pickle 
+from math import log2
+import numpy as np
 #--------
 # Test!
 #-------
@@ -17,20 +18,53 @@ import pickle
 
 # Read lattices from a file
 # Pickled as { n -> [{alpha -> children}, (alpha_1,...) ] }
-f = open("../sxpid/lattices.pkl", "rb")
-lattices = pickle.load(f)
+lattices = lt.lattices
 
 
 # Bivariate
 n = 2
 
+def validation(n, gate, true_values, lattices):
+    ptw, avg = SxPID.pid(n, gate, lattices[n][0], lattices[n][1], False)
+    for rlz in ptw.keys():
+        assert np.allclose(true_values[rlz],
+                           np.array([ptw[rlz][((1,),(2,),)][2],
+                                     ptw[rlz][((1,),)][2],
+                                     ptw[rlz][((2,),)][2],
+                                     ptw[rlz][((1,2),)][2]])), (
+                                         'pointwise values at ({0},{1},{2}) are not [{3:.8f}, {4:.8f}, {5:.8f}, {6:.8f}]'.format(
+                                             rlz[0], rlz[1], rlz[2],
+                                             true_values[rlz][0],
+                                             true_values[rlz][1],
+                                             true_values[rlz][2],
+                                             true_values[rlz][3],)
+                                     )
+    #^ for
+    return 0
+#^ validation()
+
 # Xor
+def test_xor_gate():
+    xorgate = dict()
+    xorgate[(0,0,0)] = 0.25
+    xorgate[(0,1,1)] = 0.25
+    xorgate[(1,0,1)] = 0.25
+    xorgate[(1,1,0)] = 0.25
+
+    true_values = dict()
+    true_values[(0,0,0)] = np.array([log2(2/3), log2(3/2), log2(3/2), log2(4/3)])
+    true_values[(0,1,1)] = np.array([log2(2/3), log2(3/2), log2(3/2), log2(4/3)])
+    true_values[(1,0,1)] = np.array([log2(2/3), log2(3/2), log2(3/2), log2(4/3)])
+    true_values[(1,1,0)] = np.array([log2(2/3), log2(3/2), log2(3/2), log2(4/3)])
+    validation(2, xorgate, true_values, lattices)
+    
+#^ test_xor_gate()
+
 xorgate = dict()
 xorgate[(0,0,0)] = 0.25
 xorgate[(0,1,1)] = 0.25
 xorgate[(1,0,1)] = 0.25
 xorgate[(1,1,0)] = 0.25
-
 
 # And
 andgate = dict()
