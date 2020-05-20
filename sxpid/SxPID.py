@@ -204,9 +204,9 @@ class PDF:
         """
 
         rlz_mask = rlz == self.coords
-        sum_mask = np.all(np.logical_or(np.logical_not(union_masks[0]), rlz_mask), axis=-1)
+        sum_mask = np.all( ~union_masks[0] | rlz_mask, axis=-1)
         for set_mask in union_masks[1:]:
-            sum_mask = np.logical_or(sum_mask, np.all(np.logical_or(np.logical_not(set_mask), rlz_mask), axis=-1))
+            sum_mask = sum_mask | np.all( ~set_mask | rlz_mask, axis=-1)
         summ = np.sum(self.probs, where=sum_mask)
         return summ
 
@@ -303,7 +303,7 @@ def bool_mask_to_set(boolmask):
     """
     setofsets = ()
     for boolset in boolmask:
-        sett = tuple(np.nonzero(boolset)[0])
+        sett = tuple(np.nonzero(boolset)[0]+1)
         setofsets += (sett,)
     return setofsets
 
@@ -356,7 +356,7 @@ def compute_atoms(pdf, achain, achain_chld, rlz):
         atoms[bool_mask_to_set(alpha)] = (piplus, piminus, piplus - piminus)
     return atoms
     
-def pid(pdf, achain_dict=None, verbose=2, no_threads=1):
+def pid(pdf, achains=None, verbose=2, no_threads=1):
     """Estimate partial information decomposition for 'n' inputs and one output
                                                                                 
     Implementation of the partial information decomposition (PID) estimator for
@@ -370,6 +370,7 @@ def pid(pdf, achain_dict=None, verbose=2, no_threads=1):
     Args:                                                                       
             pdf: Joint probability density of sources and target. The last variable will be treated as the target, i.e. function performs (pdf.nVar-1)-variable PID.  
             achain : Dictionary {achain -> [children]} with sets encoded as tuples of integers. Will attempt to load from ./sxpid/lattices.pkl if not supplied.
+                     Alternatively, list [achain], children are automatically fetched from file.
             printing: Bool - If true prints the results using PrettyTables
             verbose: int bitmask: 1 - Print intermediate steps
                                   2 - Show progress bar (slight performance decrease from the use of imap instead of map)
@@ -387,8 +388,14 @@ def pid(pdf, achain_dict=None, verbose=2, no_threads=1):
         if verbose & 1: print("[Done]")
 
     if verbose & 1: print("Loading antichain children...", end='')
-    if achain_dict is None:
+    if type(achains) is dict:
+        achain_dict = achains
+    else:
         achain_dict = load_achain_dict(pdf.nVar-1)
+
+        if type(achains) is list:
+            achain_dict = {achain : achain_dict[achain] for achain in achains}
+    
     achains, achain_chld = convert_achain_dict(pdf.nVar-1, achain_dict)
     if verbose & 1: print("[Done]")
 

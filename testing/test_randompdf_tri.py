@@ -83,7 +83,7 @@ def compute_pid(nT, nX, nY, nZ, maxiter, achains):
                 #^ if neg
             #^ for alpha
         #^ for rlz
-    #^ for iter"""
+    #^ for iter
     toc = time.time()
     # Check Average Time
     print("**********************************************************************")
@@ -146,7 +146,6 @@ Where: t    is the size of the range of T;
 #--------
 # Run It!
 #--------
-#Main(argv)
-Main([0, 10, 10, 10, 10, 1])
+Main(argv)
 
 #EOF
