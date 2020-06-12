@@ -1,10 +1,13 @@
-from distutils.core import setup
+from setuptools import setup
 
 # http://www.diveintopython3.net/packaging.html
 # https://pypi.python.org/pypi?:action=list_classifiers
 
 with open('README.txt') as file:
     long_description = file.read()
+
+with open('requirements.txt') as fp:
+    install_requires = fp.read()
 
 setup(
     name='sxpid',
@@ -26,5 +29,6 @@ setup(
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Physics",
     "Topic :: Scientific/Engineering :: Information Analysis",
-    ]
+    ],
+    install_requires=install_requires,
 )
