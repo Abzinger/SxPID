@@ -1,4 +1,4 @@
-# test_randompdf_tri.py
+# demo_randompdf_tri.py
 
 from sxpid import SxPID
 import numpy as np

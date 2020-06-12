@@ -1,17 +1,13 @@
-# test_and_gate.py
-from sys import path
-path.insert(0,"../sxpid")
+# demo_and_gate.py
 
-import SxPID
- 
+from sxpid import SxPID
+from sxpid import lattices as lt 
 import time
-import pickle
 
 
 # Unpickle the lattices from a file
 # Pickled as { n -> [{alpha -> children}, (alpha_1,...) ] }
-f = open("../sxpid/lattices.pkl", "rb")
-lattices = pickle.load(f)
+lattices = lt.lattices
 
 # Format of the pdf is 
 # { (s1,s2,t) -> p(s1,s2,t) } for all s1 in S1, s2 in S2, and t in T.
@@ -23,18 +19,14 @@ andgate[(0,1,0)] = 0.25
 andgate[(1,0,0)] = 0.25
 andgate[(1,1,1)] = 0.25
 
-# Arguments of pid()
-# n : int - number of pid sources                                     
+# Arguments of pid()                              
 # pdf_orig : dict - the original joint distribution of the inputs and                                                                              
 #                   the output (realizations are the keys). It doesn't have 
 #                   to be a full support distribution, i.e., it can contain  
 #                   realizations with 'zero' mass probability                
-# chld :     dict - list of children for each node in the redundancy      
-#                   lattice (nodes are the keys)                                 
-# achain :   tuple - tuple of all the nodes (antichains) in the         
-#                    redundacy lattice
-# printing:  Bool - If true prints the results using PrettyTables
-
+# verbose:  int bitmask: 1 - Print intermediate steps
+#                        2 - Show progress bar (slight performance decrease from the use of imap instead of map)
+#                        4 - Print result tables
 # Returns:
 #          tuple                                                               
 #          (pointwise_decomposition, averaged_decomposition)
@@ -46,12 +38,8 @@ print("***********************************")
 print("The SxPID for the Logic And(S1,S2):")
 print("***********************************")
 itic = time.process_time()
-n = 2
 pdf_orig = andgate
-chld = lattices[n][0]
-achain = lattices[n][1]
-printing = True
-ptw, avg = SxPID.pid(n, pdf_orig, chld, achain, printing)
+ptw, avg = SxPID.pid(pdf_orig, verbose=4)
 itoc = time.process_time()
 
 print("time: ", itoc - itic, "secs")
@@ -74,12 +62,8 @@ triandgate[(1,1,0,0)] = 1/8
 triandgate[(1,1,1,1)] = 1/8
 
 itic = time.process_time()
-n = 3
 pdf_orig = triandgate
-chld = lattices[n][0]
-achain = lattices[n][1]
-printing = True
-ptw, avg = SxPID.pid(n, pdf_orig, chld, achain, printing)
+ptw, avg = SxPID.pid(pdf_orig, verbose=4)
 itoc = time.process_time()
 
 print("time: ", itoc - itic, "secs")
@@ -110,12 +94,8 @@ quadandgate[(1,1,1,0,0)] = 1/16
 quadandgate[(1,1,1,1,1)] = 1/16
 
 itic = time.process_time()
-n = 4
 pdf_orig = quadandgate
-chld = lattices[n][0]
-achain = lattices[n][1]
-printing = True
-ptw, avg = SxPID.pid(n, pdf_orig, chld, achain, printing)
+ptw, avg = SxPID.pid(pdf_orig, verbose=4)
 itoc = time.process_time()
 
 print("time: ", itoc - itic, "secs")
