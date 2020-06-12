@@ -3,10 +3,9 @@
 from sys import path
 path.insert(0, "../../../BROJA_2PID")
 import BROJA_2PID
-path.insert(0,"../sxpid")
-import SxPID
+from sxpid import SxPID
+from sxpid import lattices as lt
 import time
-import pickle
 import matplotlib.pyplot as plt
 import dit
 
@@ -75,7 +74,7 @@ def compute_sxpid(pdfs, lattices):
         # dpdf = dit.Distribution(pts, values, base='linear', validate=False)
         # print(dpdf)
         # Compute SxPID
-        ptw, avg = SxPID.pid(n, pdfs[k], lattices[n][0], lattices[n][1], False)
+        ptw, avg = SxPID.pid(pdfs[k])
         shared[k]   = avg[((1,),(2,),)][2]
         synergy[k]  = avg[((1,2,),)][2]
         unique_1[k] = avg[((1,),)][2]
