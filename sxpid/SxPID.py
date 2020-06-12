@@ -1,7 +1,8 @@
-"""                                                                             
+"""                                                                            
 Shared exclusion partial information decomposition (SxPID)                      
 """
 
+from sxpid import lattices as lt
 import numpy as np
 import math
 import time
@@ -309,10 +310,8 @@ def bool_mask_to_set(boolmask):
 
 @lru_cache(4)
 def load_achain_dict(n):
-    import pickle
 
-    f = open("./sxpid/lattices.pkl", "rb")
-    lattices = pickle.load(f)
+    lattices = lt.lattices
 
     return lattices[n][0]
     

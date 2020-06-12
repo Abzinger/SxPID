@@ -1,10 +1,6 @@
 # test_randompdf_tri.py
 
-from sys import path
-path.insert(0,"./sxpid")
-
-import SxPID
-
+from sxpid import SxPID
 import numpy as np
 import time
 from random import random
@@ -20,7 +16,7 @@ import pickle
 #          iter is the number of pdfs
 #                   (defaults to 250).
 
-def compute_pid(nT, nX, nY, nZ, maxiter, achains):
+def compute_pid(nT, nX, nY, nZ, maxiter):
 
     # Lists to store Time and Error for boxplotting
     Ti = []
@@ -137,9 +133,7 @@ Where: t    is the size of the range of T;
     #^ if
 
     # Compute PID for randomly sampled pdfs
-    f = open("./sxpid/lattices.pkl", "rb")
-    lattice = SxPID.load_achain_dict(3)
-    Npid = compute_pid(nT,nX,nY,nZ,maxiter, lattice)
+    Npid = compute_pid(nT,nX,nY,nZ,maxiter)
     print("list of pdfs w/ negative PID", Npid)
 #^ Main()
 
