@@ -9,6 +9,15 @@ from itertools import chain, combinations
 from collections import defaultdict
 from prettytable import PrettyTable
 
+from tqdm import tqdm
+
+import multiprocessing as mp
+
+from functools import lru_cache
+from functools import partial
+
+import logging
+
 #---------
 # Lattice 
 #---------
@@ -72,71 +81,177 @@ class Lattice:
 
 #^ Lattice()
 
+#---------
+# PDF 
+#---------
+
+class PDF:
+    """
+    Internal representation of a sparse joint probability mass function of nVar variables.
+
+    Uses COO representation with separate coords and probs numpy array and provides fast numpy vectorized methods for marginalizing.
+    """
+
+    def __init__(self, coords, probs, labels=None):
+        """
+        Create a new PDF from a given coordinate and probability array.
+
+        Args:
+            coords: Numpy array of shape (nRlz, nVar) of unsigned integers containing the indices of realizations with non-zero probability. Realizations are assumed to be unique.
+                    Use Fortran contiguity for improved performance.
+            probs:  Numpy array of shape (nRlz,) of floats containing the corresponding non-zero probabilities
+            labels: List of lists, ith list gives the conversion from coordinates to event labels of the ith coordinate
+        """
+
+        assert type(coords) is np.ndarray, "Coordinates must be numpy array"
+        assert type(probs) is np.ndarray, "Probabilities must be numpy array"
+
+        assert coords.ndim == 2, "Coordinate array must have dimensions (nRealisations, nVariables)"
+        assert probs.ndim == 1, "Probability array must have dimension (nRealisations,)"
+
+        assert coords.shape[0] == probs.shape[0], "Dimensions of coordinate array (nRealisations, nVariables) and probability array (nRealisations,) do not match"
+
+        assert np.sum(probs) - 1 < 1e-10, "Probabilities must sum up to 1"
+        
+        if(not coords.data.f_contiguous):
+            print("Coordinate array in PDF is not Fortran contiguous, which is bad for performance!")
+
+        self.coords = coords
+        self.probs = probs
+        self.labels = labels
+
+        #number of random variables
+        self.nVar = self.coords.shape[1]
+
+        #number of realizations with non-zero mass
+        self.nRlz = self.coords.shape[0]
+
+    @classmethod
+    def from_dict(cls, pdf_dict):
+        """
+        Creates a PDF from a pdf dictionary {(Rlz tuple):probability}
+
+        Impossible realizations are automatically filtered out. The smallest possible unsigned integer datatype is used for the coordinate array.
+
+        Args:
+            pdf_dict: Dictionary of realization tuples and their corresponding probabilities. Labels in realization tuples can be arbitrary comparable (equals) objects.
+
+        Returns:
+            A new PDF with the data from the dictionary
+        """
+
+        # Remove the impossible realization
+        pdf_dict = {k:v for k,v in pdf_dict.items() if v > 1.e-300 }
+
+        nKeys = len(pdf_dict.keys())
+        nVar  = len(next(iter(pdf_dict.keys())))
+
+        keys, vals = zip(*pdf_dict.items())
+
+        events = np.empty((nKeys, nVar), dtype=object)
+        events[:] = keys
+        
+        coords = np.empty((nKeys, nVar), order='F', dtype=np.uint64)
+        labels = []
+        for i in range(nVar):
+            labels_column, inverse_column = np.unique(events[:,i], return_inverse=True)
+            coords[:,i] = inverse_column
+            labels.append(labels_column)
+
+        #Use smallest integer datatype possible for coordinates.
+        #Improves memory consumption and execution speeds.
+        alphabet_sizes = np.array(list(map(len, labels)))
+        max_var = np.max(alphabet_sizes)
+        
+        uint_types = [np.uint8, np.uint16, np.uint32, np.uint64]
+        uint_max   = np.array([np.iinfo(t).max for t in uint_types], dtype=np.uint64)
+        dtype = uint_types[np.argmax(max_var <= uint_max)]
+
+        coords = coords.astype(dtype)
+
+        probs   = np.array(vals)
+
+        pdf = PDF(coords, probs, labels)
+        
+        return pdf
+
+    def get_labels(self):
+        """
+        Returns list of length nRlz with the original event labels, reconstructed from labels. If no labels are given, returns list of tuples of coordinates.
+
+        Returns:
+            List of tuples
+        """
+
+        labels_columns = ()
+        for i in range(self.nVar):
+            coord_column = self.coords[:,i]
+            labels_columns += (list(self.labels[i][coord_column] if self.labels else coord_column),)
+        labels = list(zip(*labels_columns))
+
+        return labels
+
+    def probu_one_rlz(self, rlz, union_masks):
+        """
+        Calculate the probability of a union of marginals of sets all including the realization rlz
+
+        Args:
+            rlz: Numpy array of shape (nVar,) with coordinates of the realization that is conatined in all sets.
+            union_masks: Numpy array of shape (nSets, nVar) with each row of shape (nVar,) indicating which variables to marginalize over.
+
+        Returns:
+            summ: Float signifying the probability of a union of marginals
+        """
+
+        rlz_mask = rlz == self.coords
+        sum_mask = np.all( ~union_masks[0] | rlz_mask, axis=-1)
+        for set_mask in union_masks[1:]:
+            sum_mask = sum_mask | np.all( ~set_mask | rlz_mask, axis=-1)
+        summ = np.sum(self.probs, where=sum_mask)
+        return summ
+
+
 #---------------
 # pi^+(t:alpha)
 #    and
 # pi^-(t:alpha) 
 #---------------
 
-def powerset(m):
-    lis = [i for i in range(1, m+1)]
-    return chain.from_iterable(combinations(lis, r) for r in range(1,len(lis) + 1) )
-#^ powerset()
-
-def marg(pdf, rlz, uset):
-    """compute the marginal probability mass                                    
-    e.g. p(t,s1,s2)"""
-    idxs = [ idx - 1 for idx in list(uset)]
-    summ = 0.
-    for k in pdf.keys():
-        if all(k[idx] == rlz[idx] for idx in idxs): summ += pdf[k]
-    #^ for
-    return summ
-#^ marg()
-    
-def prob(n, pdf, rlz, gamma, target=False):
-    """Compute the Probability mass on a  lattice node                          
-    e.g. node = {1}{2} p(s1 \cup s2) using inclusion-exclusion"""
-    m = len(gamma)
-    pset = powerset(m)
-    summ = 0
-    for idxs in pset:
-        if target:
-            uset = frozenset((n+1,))
-        else:
-            uset = frozenset(())
-        #^ if 
-        for i in list(idxs):
-            uset |= frozenset(gamma[i-1])
-        #^ for i
-        summ += (-1)**(len(idxs) + 1) * marg(pdf, rlz, uset)
-    #^ for idxs
-    return summ
-#^ prob()
-
-def differs(n, pdf, rlz, alpha, chl, target=False):
+def differs(pdf, rlz, alpha, chl, target=False):
     """Compute the probability mass difference                                  
     For a node 'alpha' and any child gamma of alpha it computes p(gamma) -      
     p(alpha) for all gamma"""
-    if chl == [] and target:
-        base = prob(n, pdf, rlz, [()], target)/prob(n, pdf, rlz, alpha, target)
+
+    chlt = []
+    for c in chl:
+        newcolumn = np.full((c.shape[0], 1), target)
+        chlt.append(np.append(c, newcolumn, axis=1))
+
+    newcolumn = np.full((alpha.shape[0], 1), target)
+    alphat = np.append(alpha, newcolumn, axis=1)
+
+    if chlt == [] and target:
+        full = np.full((1, pdf.nVar), False)
+        full[:,-1] = target
+        base = pdf.probu_one_rlz(rlz, full) / pdf.probu_one_rlz(rlz, alphat)
     else:
-        base = prob(n, pdf, rlz, alpha, target)
-    #^ if bottom
-    temp_diffs = [prob(n, pdf, rlz, gamma, target) - base for gamma in chl]
+        base = pdf.probu_one_rlz(rlz, alphat)
+
+    temp_diffs = [pdf.probu_one_rlz(rlz, gamma) - base for gamma in chlt]
     temp_diffs.sort()
     return [base] + temp_diffs
-#^ differs()
 
+@lru_cache(32)
 def sgn(num_chld):
-    """Recurrsive function that generates the signs (+ or -) for the            
-       inclusion-exculison principle"""
+    """
+    Recurrsive function that generates the signs (+ or -) for the            
+    inclusion-exculison principle
+    """
     if num_chld == 0:
         return np.array([+1])
     else:
-        return np.concatenate((sgn(num_chld - 1), -sgn(num_chld - 1)), axis=None)
-    #^ if bottom 
-#^sgn()
+        rec = sgn(num_chld - 1)
+        return np.concatenate((rec, -rec))
     
 def vec(num_chld, diffs):
     """
@@ -145,33 +260,103 @@ def vec(num_chld, diffs):
       diffs : vector of probability differences 
               (d_i)_i where d_i = p(gamma_i) - p(alpha) and d_0 = p(alpha)  
     """
-    # print(diffs)
-    if num_chld == 0:
-        return np.array([diffs[0]])
-    else:
-        temp = vec(num_chld - 1, diffs) + diffs[num_chld]*np.ones(2**(num_chld - 1))
-        return np.concatenate((vec(num_chld - 1, diffs), temp), axis=None)
-    #^ if bottom
-#^ vec()
+    vec = np.empty(2**num_chld)
+    vec[0] = diffs[0]
+    for i in range(num_chld):
+        length = 2**i
+        vec[length:2*length] = vec[0:length] + diffs[i+1]
+    return vec
 
-def pi_plus(n, pdf, rlz, alpha, chld, achain):
+def pi_plus(pdf, rlz, alpha, chld):
      """Compute the informative PPID """
-     diffs = differs(n, pdf, rlz, alpha, chld[tuple(alpha)], False)
-     return np.dot(sgn(len(chld[alpha])), -np.log2(vec(len(chld[alpha]),diffs)))
+     diffs = differs(pdf, rlz, alpha, chld, False)
+     return np.dot(sgn(len(chld)), -np.log2(vec(len(chld),diffs)))
 #^ pi_plus()
 
-def pi_minus(n, pdf, rlz, alpha, chld, achain):
+def pi_minus(pdf, rlz, alpha, chld):
     """Compute the misinformative PPID """
-    diffs = differs(n, pdf, rlz, alpha, chld[alpha], True)
-    if chld[alpha] == []:
-        return np.dot(sgn(len(chld[alpha])), np.log2(vec(len(chld[alpha]),diffs)))
+    diffs = differs(pdf, rlz, alpha, chld, True)
+    if chld == []:
+        return np.dot(sgn(len(chld)), np.log2(vec(len(chld),diffs)))
     else:
-        return np.dot(sgn(len(chld[alpha])), -np.log2(vec(len(chld[alpha]),diffs)))
+        return np.dot(sgn(len(chld)), -np.log2(vec(len(chld),diffs)))
     #^ if bottom
 #^ pi_minus()
 
+def set_to_bool_mask(n, sett):
+    """
+    Convert set of sets (i.e. tuple of tuples of integers) to bool mask description of set
+    e.g. ((1,), (1, 2, 4)) -> np.array([True, False, False, False],[True, True, False, True]])
 
-def pid(n, pdf_orig, chld, achain, printing=False):
+    Args:
+        n:  Number of variables, length of returned boolean array
+        sett:   Tuple of tuples of integers <= n
+    """
+    ret = np.full((len(sett), n), False)
+    for i in range(len(sett)):
+        ret[i, np.array(sett[i])-1] = True
+    return ret
+
+def bool_mask_to_set(boolmask):
+    """
+    Inverse to set_to_bool_mask
+    """
+    setofsets = ()
+    for boolset in boolmask:
+        sett = tuple(np.nonzero(boolset)[0]+1)
+        setofsets += (sett,)
+    return setofsets
+
+@lru_cache(4)
+def load_achain_dict(n):
+    import pickle
+
+    f = open("./sxpid/lattices.pkl", "rb")
+    lattices = pickle.load(f)
+
+    return lattices[n][0]
+    
+def convert_achain_dict(n, achain_dict):
+    """
+    Converts antichain-dictionary to internal representation using boolean arrays
+
+    Args:
+        n: Number of variables
+        achain_dict: Antichain dictionary {achain : [children]}
+
+    Returns:
+        achainlist: list of sets (in bool_mask representation, see set_to_bool_mask())
+        chldlist: list of list of children sets of corresponding antichains in achainlist
+    """
+    achainlist = []
+    chldlist = []
+    for achain in achain_dict.keys():
+        achainlist.append(set_to_bool_mask(n, achain))
+        chldlist.append([set_to_bool_mask(n, child) for child in achain_dict[achain]])
+
+    return achainlist, chldlist
+
+def compute_atoms(pdf, achain, achain_chld, rlz):
+    """
+    Computes the pointwise partial information atoms.
+
+    Args:
+        pdf: Probability density function
+        achain: Antichain, bool array
+        achain_chld: Children of antichain
+        rlz: Coordinates of current realization
+
+    Returns:
+        Dictionary {alpha : pid atom}
+    """
+    atoms = dict()
+    for alpha, alphachl in zip(achain, achain_chld):
+        piplus  = pi_plus(pdf, rlz, alpha, alphachl)
+        piminus = pi_minus(pdf, rlz, alpha, alphachl)
+        atoms[bool_mask_to_set(alpha)] = (piplus, piminus, piplus - piminus)
+    return atoms
+    
+def pid(pdf, achains=None, verbose=2, no_threads=1):
     """Estimate partial information decomposition for 'n' inputs and one output
                                                                                 
     Implementation of the partial information decomposition (PID) estimator for
@@ -183,83 +368,75 @@ def pid(n, pdf_orig, chld, achain, printing=False):
     their corresponding redundancy lattice is provided ( check Lattice() )      
                                                                                 
     Args:                                                                       
-            n : int - number of pid sources                                     
-            pdf_orig : dict - the original joint distribution of the inputs and
-                       the output (realizations are the keys). It doesn't have
-                       to be a full support distribution, i.e., it can contain
-                       realizations with 'zero' mass probability
-            chld : dict - list of children for each node in the redundancy
-                   lattice (nodes are the keys)      
-            achain : tuple - tuple of all the nodes (antichains) in the
-                     redundacy lattice
+            pdf: Joint probability density of sources and target. The last variable will be treated as the target, i.e. function performs (pdf.nVar-1)-variable PID.  
+            achain : Dictionary {achain -> [children]} with sets encoded as tuples of integers. Will attempt to load from ./sxpid/lattices.pkl if not supplied.
+                     Alternatively, list [achain], children are automatically fetched from file.
             printing: Bool - If true prints the results using PrettyTables
-                                                                                
+            verbose: int bitmask: 1 - Print intermediate steps
+                                  2 - Show progress bar (slight performance decrease from the use of imap instead of map)
+                                  4 - Print result tables
+            no_threads: Maximum number of parallel threads (CPU only) for calculation of PID atoms. If None, use all available threads.                                              
     Returns:                                                                    
             tuple                                                               
-                pointwise decomposition, averaged decomposition                 
-    """
+                ptw_dict: Pointwise partial information decomposition atoms {rlz : {achain : pid atom}}
+                avg: Averaged pointwise partial information decomposition atoms {achain : averaged pid atom}
+    """                 
+
+    if type(pdf) == dict:
+        if verbose & 1: print("Converting PDF dict to internal format...", end='')
+        pdf = PDF.from_dict(pdf)
+        if verbose & 1: print("[Done]")
+
+    if verbose & 1: print("Loading antichain children...", end='')
+    if type(achains) is dict:
+        achain_dict = achains
+    else:
+        achain_dict = load_achain_dict(pdf.nVar-1)
+
+        if type(achains) is list:
+            achain_dict = {achain : achain_dict[achain] for achain in achains}
     
-    assert type(pdf_orig) is dict, "SxPID.pid(pdf, chld, achain): pdf must be a dictionary"
-    assert type(chld) is dict, "SxPID.pid(pdf, chld, achain): chld must be a dictionary"
-    assert type(achain) is list, "SxPID.pid(pdf, chld, achain): pdf must be a list"
+    achains, achain_chld = convert_achain_dict(pdf.nVar-1, achain_dict)
+    if verbose & 1: print("[Done]")
 
-    if __debug__:
-        sum_p = 0.
-        for k,v in pdf_orig.items():
-            assert type(k) is tuple,                              "SxPID.pid(pdf, chld, achain): pdf's keys must be tuples"
-            assert len(k) < 6,                                    "SxPID.pid(pdf, chld, achain): pdf's keys must be tuples of length at most 5"
-            assert type(v) is float or ( type(v)==int and v==0 ), "SxPID.pid(pdf, chld, achain): pdf's values must be floats"
-            assert v >-.1,                                        "SxPID.pid(pdf, chld, achain): pdf's values must be nonnegative"
-            sum_p += v
-        #^ for
-
-        assert abs(sum_p - 1) < 1.e-7,                           "SxPID.pid(pdf, chld, achain): pdf's keys must sum up to 1 (tolerance of precision is 1.e-7)"
-    #^ if debug
-
-    assert type(printing) is bool,                                "SxPID.pid(pdf, chld, achain, printing): printing must be a bool"
-
-    # Remove the impossible realization
-    pdf = {k:v for k,v in pdf_orig.items() if v > 1.e-300 }
-
-    # Initialize the output where
-    # ptw = { rlz -> { alpha -> pi_alpha } }
-    # avg = { alpha -> PI_alpha }
-    ptw = dict()
-    #avg = defaultdict(lambda : [0.,0.,0.])
-    avg = dict()
     # Compute and store the (+, -, +-) atoms
-    for rlz in pdf.keys():
-        ptw[rlz] = dict()
-        for alpha in achain:
-            piplus = pi_plus(n, pdf, rlz, alpha, chld, achain)
-            piminus = pi_minus(n, pdf, rlz, alpha, chld, achain)
-            ptw[rlz][alpha] = (piplus, piminus, piplus - piminus)
-            # avg[alpha][0] += pdf[rlz]*ptw[rlz][alpha][0]
-            # avg[alpha][1] += pdf[rlz]*ptw[rlz][alpha][1]
-            # avg[alpha][2] += pdf[rlz]*ptw[rlz][alpha][2]
-             
-        #^ for
-    #^ for
+    if verbose & 1: print("Calculating {}-variable PID atoms...".format(pdf.nVar-1, pdf.nRlz), end='\n' if verbose & 2 else '')
+    pool = mp.Pool(processes=no_threads)
+    if verbose & 2:
+        ptw = list(tqdm(pool.imap(partial(compute_atoms, pdf, achains, achain_chld), pdf.coords), total=pdf.nRlz))
+    else:
+        ptw = pool.map(partial(compute_atoms, pdf, achains, achain_chld), pdf.coords)
+    if verbose & 1: print('[Done]')
+
+
     # compute and store the average of the (+, -, +-) atoms 
-    for alpha in achain:
+    avg = dict()
+    if verbose & 1: print("Computing averages...", end='')
+    for alpha in achains:
+        alpha_set = bool_mask_to_set(alpha)
         avgplus = 0.
         avgminus = 0.
         avgdiff = 0.
-        for rlz in pdf.keys():
-            avgplus  += pdf[rlz]*ptw[rlz][alpha][0]
-            avgminus += pdf[rlz]*ptw[rlz][alpha][1]
-            avgdiff  += pdf[rlz]*ptw[rlz][alpha][2]
-            avg[alpha] = (avgplus, avgminus, avgdiff)
+        for rlz in range(pdf.nRlz):
+            avgplus  += pdf.probs[rlz]*ptw[rlz][alpha_set][0]
+            avgminus += pdf.probs[rlz]*ptw[rlz][alpha_set][1]
+            avgdiff  += pdf.probs[rlz]*ptw[rlz][alpha_set][2]
+            avg[alpha_set] = (avgplus, avgminus, avgdiff)
         #^ for
     #^ for
+    if verbose & 1: print("[Done]")
+
+    #Create ptw_dict from pointwise atom list ptw and event labels
+    ptw_dict = dict(zip(pdf.get_labels(), ptw))
 
     # Print the result if asked
-    if printing:
+    if verbose & 4:
         table = PrettyTable()
         table.field_names = ["RLZ", "Atom", "pi+", "pi-", "pi"]
-        for rlz in pdf.keys():
+        for rlz in ptw_dict:
             count = 0
-            for alpha in achain:
+            for alpha in achains:
+                alpha = bool_mask_to_set(alpha)
                 stalpha = ""
                 for a in alpha:
                     stalpha += "{"
@@ -268,8 +445,8 @@ def pid(n, pdf_orig, chld, achain, printing=False):
                     #^ for i
                     stalpha += "}" 
                 #^ for a
-                if count == 0: table.add_row( [str(rlz), stalpha, str(ptw[rlz][alpha][0]), str(ptw[rlz][alpha][1]), str(ptw[rlz][alpha][2])] )
-                else:          table.add_row( [" ", stalpha, str(ptw[rlz][alpha][0]), str(ptw[rlz][alpha][1]), str(ptw[rlz][alpha][2])] )
+                if count == 0: table.add_row( [str(rlz), stalpha, str(ptw_dict[rlz][alpha][0]), str(ptw_dict[rlz][alpha][1]), str(ptw_dict[rlz][alpha][2])] )
+                else:          table.add_row( [" ", stalpha, str(ptw_dict[rlz][alpha][0]), str(ptw_dict[rlz][alpha][1]), str(ptw_dict[rlz][alpha][2])] )
                 count += 1 
             #^ for alpha
             table.add_row(["*", "*", "*", "*", "*"])
@@ -277,7 +454,8 @@ def pid(n, pdf_orig, chld, achain, printing=False):
 
         table.add_row(["-", "-", "-", "-", "-"])
         count = 0
-        for alpha in achain:
+        for alpha in achains:
+            alpha = bool_mask_to_set(alpha)
             stalpha = ""
             for a in alpha:
                 stalpha += "{"
@@ -293,7 +471,5 @@ def pid(n, pdf_orig, chld, achain, printing=False):
         print(table)
     #^ if printing
     
-    return ptw, avg
+    return ptw_dict, avg
 #^ jxpid()
-
-# EOF
