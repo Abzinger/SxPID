@@ -19,13 +19,12 @@ from sxpid import lattices as lt
 lattices = lt.lattices
 
 def validate(n, gate, true_values, lattices):
-    ptw, avg = SxPID.pid(n, gate, lattices[n][0], lattices[n][1], False)
+    ptw, _ = SxPID.pid(gate)
     for rlz in ptw.keys():
         est_values = np.zeros(len(lattices[n][0]))
-        i = 0
-        for alpha in lattices[n][0].keys():
+
+        for i, alpha in enumerate(lattices[n][0].keys()):
             est_values[i] = ptw[rlz][alpha][2]
-            i += 1
         #^ for
         assert np.allclose(true_values[rlz],
                            est_values)
