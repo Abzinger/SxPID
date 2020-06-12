@@ -371,7 +371,6 @@ def pid(pdf, achains=None, verbose=2, no_threads=1):
             pdf: Joint probability density of sources and target. The last variable will be treated as the target, i.e. function performs (pdf.nVar-1)-variable PID.  
             achain : Dictionary {achain -> [children]} with sets encoded as tuples of integers. Will attempt to load from ./sxpid/lattices.pkl if not supplied.
                      Alternatively, list [achain], children are automatically fetched from file.
-            printing: Bool - If true prints the results using PrettyTables
             verbose: int bitmask: 1 - Print intermediate steps
                                   2 - Show progress bar (slight performance decrease from the use of imap instead of map)
                                   4 - Print result tables

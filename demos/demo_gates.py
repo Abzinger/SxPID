@@ -198,7 +198,7 @@ for gate in gates.keys():
     print("The SxPID for the ", gate, " :")
     print("**************************************")
     itic = time.process_time()
-    SxPID.pid(n, gates[gate], lattices[n][0], lattices[n][1], True)
+    SxPID.pid(gates[gate], verbose=4)
     itoc = time.process_time()
     print("time: ", itoc - itic, "secs")
 #^ for gate
@@ -313,7 +313,7 @@ for gate in gates.keys():
     print("The SxPID for the ", gate, " :")
     print("**************************************")
     itic = time.process_time()
-    SxPID.pid(n, gates[gate], lattices[n][0], lattices[n][1], True)
+    SxPID.pid(gates[gate], verbose=4)
     itoc = time.process_time()
     print("time: ", itoc - itic, "secs")
 
@@ -346,7 +346,7 @@ print("***********************************")
 print("The SxPID for the four bit hash:")
 print("***********************************")
 itic = time.process_time()
-SxPID.pid(n, quadhashgate, lattices[n][0], lattices[n][1], True)
+SxPID.pid(quadhashgate, verbose=4)
 itoc = time.process_time()
 print("time: ", itoc - itic, "secs")
 
