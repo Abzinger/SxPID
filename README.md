@@ -10,4 +10,4 @@ For more details, check the preprint:
 
 
 # User Guided Exmaple
-The example file demo/demo_and_gate.py has detailed explanation on how to run the code, in particular the main function `Sxpid.pid()` to compute the partial information decomposition. 
+The example `file demo/demo_and_gate.py` has detailed explanation on how to run the code, in particular the main function `Sxpid.pid()` to compute the partial information decomposition. 
