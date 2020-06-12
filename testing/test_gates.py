@@ -450,51 +450,55 @@ def test_trirnd_gate():
     validate(3, trirndgate, true_values, lattices)
 #^ test_trirnd_gate()
 
-# # DblXor T = (S_1 Xor S_2 , S_2 Xor S_3)
-# def test_dblxor_gate():
-#     """Test SxPID on DblXor gate"""
-#     dblxorgate = dict()
-#     dblxorgate[(0,0,0,(0,0))] = 1/8
-#     dblxorgate[(0,0,1,(0,1))] = 1/8
-#     dblxorgate[(0,1,0,(1,1))] = 1/8
-#     dblxorgate[(0,1,1,(1,0))] = 1/8
-#     dblxorgate[(1,0,0,(1,0))] = 1/8
-#     dblxorgate[(1,0,1,(1,1))] = 1/8
-#     dblxorgate[(1,1,0,(0,1))] = 1/8
-#     dblxorgate[(1,1,1,(0,0))] = 1/8
+# DblXor T = (S_1 Xor S_2 , S_2 Xor S_3)
+def test_dblxor_gate():
+    """Test SxPID on DblXor gate"""
+    dblxorgate = dict()
+    dblxorgate[(0,0,0,(0,0))] = 1/8
+    dblxorgate[(0,0,1,(0,1))] = 1/8
+    dblxorgate[(0,1,0,(1,1))] = 1/8
+    dblxorgate[(0,1,1,(1,0))] = 1/8
+    dblxorgate[(1,0,0,(1,0))] = 1/8
+    dblxorgate[(1,0,1,(1,1))] = 1/8
+    dblxorgate[(1,1,0,(0,1))] = 1/8
+    dblxorgate[(1,1,1,(0,0))] = 1/8
 
 
-#     true_values = dict()
-#     # { (s1, s2, s3, t) -> np.array[((1,),), ((2,),), ((3,),), ((1, 2),), ((1, 3),), ((2, 3),), ((1, 2, 3),), ((1,), (2,)), ((1,), (3,)), ((1,), (2, 3)), ((2,), (3,)), ((2,), (1, 3)), ((3,), (1, 2)), ((1, 2), (1, 3)), ((1, 2), (2, 3)), ((1, 3), (2, 3)), ((1,), (2,), (3,)), ((1, 2), (1, 3), (2, 3))])
-#     true_values[(0,0,0,(0,0))] = np.array([log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4)])
-#     true_values[(0,0,1,(0,1))] = np.array([log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4)])
-#     true_values[(0,1,0,(1,1))] = np.array([log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4)])
-#     true_values[(0,1,1,(1,0))] = np.array([log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4)])
-#     true_values[(1,0,0,(1,0))] = np.array([log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4)])
-#     true_values[(1,0,1,(1,1))] = np.array([log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4)])
-#     true_values[(1,1,0,(0,1))] = np.array([log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4)])
-#     true_values[(1,1,1,(0,0))] = np.array([log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4)])
-#     validate(3, dblxorgate, true_values, lattices)
-# #^ test_dblxor_gate()
+    true_values = dict()
+    # { (s1, s2, s3, t) -> np.array[((1,),), ((2,),), ((3,),), ((1, 2),), ((1, 3),), ((2, 3),), ((1, 2, 3),), ((1,), (2,)), ((1,), (3,)), ((1,), (2, 3)), ((2,), (3,)), ((2,), (1, 3)), ((3,), (1, 2)), ((1, 2), (1, 3)), ((1, 2), (2, 3)), ((1, 3), (2, 3)), ((1,), (2,), (3,)), ((1, 2), (1, 3), (2, 3))])
+    true_values[(0,0,0,(0,0))] = np.array([log2(5/4), log2(5/4), log2(5/4), log2(9/8), log2(9/8), log2(9/8), log2(32/27), log2(7/6), log2(7/6), log2(36/35), log2(7/6), log2(36/35), log2(36/35), log2(16/15), log2(16/15), log2(16/15), log2(4/7), log2(875/864)])
+    true_values[(0,0,1,(0,1))] = np.array([log2(5/4), log2(5/4), log2(5/4), log2(9/8), log2(9/8), log2(9/8), log2(32/27), log2(7/6), log2(7/6), log2(36/35), log2(7/6), log2(36/35), log2(36/35), log2(16/15), log2(16/15), log2(16/15), log2(4/7), log2(875/864)])
+    true_values[(0,1,0,(1,1))] = np.array([log2(5/4), log2(5/4), log2(5/4), log2(9/8), log2(9/8), log2(9/8), log2(32/27), log2(7/6), log2(7/6), log2(36/35), log2(7/6), log2(36/35), log2(36/35), log2(16/15), log2(16/15), log2(16/15), log2(4/7), log2(875/864)])
+    true_values[(0,1,1,(1,0))] = np.array([log2(5/4), log2(5/4), log2(5/4), log2(9/8), log2(9/8), log2(9/8), log2(32/27), log2(7/6), log2(7/6), log2(36/35), log2(7/6), log2(36/35), log2(36/35), log2(16/15), log2(16/15), log2(16/15), log2(4/7), log2(875/864)])
+    true_values[(1,0,0,(1,0))] = np.array([log2(5/4), log2(5/4), log2(5/4), log2(9/8), log2(9/8), log2(9/8), log2(32/27), log2(7/6), log2(7/6), log2(36/35), log2(7/6), log2(36/35), log2(36/35), log2(16/15), log2(16/15), log2(16/15), log2(4/7), log2(875/864)])
+    true_values[(1,0,1,(1,1))] = np.array([log2(5/4), log2(5/4), log2(5/4), log2(9/8), log2(9/8), log2(9/8), log2(32/27), log2(7/6), log2(7/6), log2(36/35), log2(7/6), log2(36/35), log2(36/35), log2(16/15), log2(16/15), log2(16/15), log2(4/7), log2(875/864)])
+    true_values[(1,1,0,(0,1))] = np.array([log2(5/4), log2(5/4), log2(5/4), log2(9/8), log2(9/8), log2(9/8), log2(32/27), log2(7/6), log2(7/6), log2(36/35), log2(7/6), log2(36/35), log2(36/35), log2(16/15), log2(16/15), log2(16/15), log2(4/7), log2(875/864)])
+    true_values[(1,1,1,(0,0))] = np.array([log2(5/4), log2(5/4), log2(5/4), log2(9/8), log2(9/8), log2(9/8), log2(32/27), log2(7/6), log2(7/6), log2(36/35), log2(7/6), log2(36/35), log2(36/35), log2(16/15), log2(16/15), log2(16/15), log2(4/7), log2(875/864)])
+    validate(3, dblxorgate, true_values, lattices)
+#^ test_dblxor_gate()
 
-# # Tri XorCopy T = (S_1, S_2, S_1 Xor S_2)
-# def test_xorcopy_gate():
-#     """Test SxPID on XorCopy gate"""
-#     xorcopygate = dict()
-#     xorcopygate[(0,0,0,(0,0,0))] = 1/4
-#     xorcopygate[(0,1,1,(0,1,1))] = 1/4
-#     xorcopygate[(1,0,1,(1,0,1))] = 1/4
-#     xorcopygate[(1,1,0,(1,1,0))] = 1/4
+# XorCopy can be defined in three ways
+# (i)   T = (S_1, S_2, S_3) & S_3 = S_1 Xor S_2
+# (ii)  T = (S_1, S_2, S_3) & S_2 = S_1 Xor S_3
+# (iii) T = (S_1, S_2, S_3) & S_1 = S_2 Xor S_3
+
+def test_xorcopy_gate():
+    """Test SxPID on XorCopy gate"""
+    xorcopygate = dict()
+    xorcopygate[(0,0,0,(0,0,0))] = 1/4
+    xorcopygate[(0,1,1,(0,1,1))] = 1/4
+    xorcopygate[(1,0,1,(1,0,1))] = 1/4
+    xorcopygate[(1,1,0,(1,1,0))] = 1/4
 
 
-#     true_values = dict()
-#     # { (s1, s2, s3, t) -> np.array[((1,),), ((2,),), ((3,),), ((1, 2),), ((1, 3),), ((2, 3),), ((1, 2, 3),), ((1,), (2,)), ((1,), (3,)), ((1,), (2, 3)), ((2,), (3,)), ((2,), (1, 3)), ((3,), (1, 2)), ((1, 2), (1, 3)), ((1, 2), (2, 3)), ((1, 3), (2, 3)), ((1,), (2,), (3,)), ((1, 2), (1, 3), (2, 3))])
-#     true_values[(0,0,0,(0,0,0))] = np.array([log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4)])
-#     true_values[(0,1,1,(0,1,1))] = np.array([log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4)])
-#     true_values[(1,0,1,(1,0,1))] = np.array([log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4)])
-#     true_values[(1,1,0,(1,1,0))] = np.array([log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4), log2(6/5), log2(6/5), log2(5/6), log2(5/4)])
-#     validate(3, xorcopygate, true_values, lattices)
-# #^ test_xorcopy_gate()
+    true_values = dict()
+    # { (s1, s2, s3, t) -> np.array[((1,),), ((2,),), ((3,),), ((1, 2),), ((1, 3),), ((2, 3),), ((1, 2, 3),), ((1,), (2,)), ((1,), (3,)), ((1,), (2, 3)), ((2,), (3,)), ((2,), (1, 3)), ((3,), (1, 2)), ((1, 2), (1, 3)), ((1, 2), (2, 3)), ((1, 3), (2, 3)), ((1,), (2,), (3,)), ((1, 2), (1, 3), (2, 3))])
+    true_values[(0,0,0,(0,0,0))] = np.array([log2(1), log2(1), log2(1), log2(1), log2(1), log2(1), log2(1), log2(4/3), log2(4/3), log2(9/8), log2(4/3), log2(9/8), log2(9/8), log2(1), log2(1), log2(1), log2(1), log2(32/27)])
+    true_values[(0,1,1,(0,1,1))] = np.array([log2(1), log2(1), log2(1), log2(1), log2(1), log2(1), log2(1), log2(4/3), log2(4/3), log2(9/8), log2(4/3), log2(9/8), log2(9/8), log2(1), log2(1), log2(1), log2(1), log2(32/27)])
+    true_values[(1,0,1,(1,0,1))] = np.array([log2(1), log2(1), log2(1), log2(1), log2(1), log2(1), log2(1), log2(4/3), log2(4/3), log2(9/8), log2(4/3), log2(9/8), log2(9/8), log2(1), log2(1), log2(1), log2(1), log2(32/27)])
+    true_values[(1,1,0,(1,1,0))] = np.array([log2(1), log2(1), log2(1), log2(1), log2(1), log2(1), log2(1), log2(4/3), log2(4/3), log2(9/8), log2(4/3), log2(9/8), log2(9/8), log2(1), log2(1), log2(1), log2(1), log2(32/27)])
+    validate(3, xorcopygate, true_values, lattices)
+#^ test_xorcopy_gate()
 
 
 # # Tri XorLoss T = S_1 Xor S_2; S_3 = S_1 Xor S_2
