@@ -172,6 +172,7 @@ wbCgate[(1,1,0)] = 1/6
 wbCgate[(1,1,1)] = 1/6
 
 
+
 gates = dict()
 gates["Xor"]  = xorgate
 gates["And"]  = andgate
@@ -295,6 +296,17 @@ xormulticoalgate[(('a','b'),('a','C'),('b','C'),1)] = 1/8
 xormulticoalgate[(('A','B'),('A','C'),('B','C'),1)] = 1/8
 
 
+# Majority gate T = Sgn(S_1 + S_2 + S_3)
+majgate = dict()
+majgate[(-1,-1,-1,-1)] = 1/8
+majgate[(-1,-1,+1,-1)] = 1/8
+majgate[(-1,+1,-1,-1)] = 1/8
+majgate[(-1,+1,+1, 1)] = 1/8
+majgate[(+1,-1,-1,-1)] = 1/8
+majgate[(+1,-1,+1, 1)] = 1/8
+majgate[(+1,+1,-1, 1)] = 1/8
+majgate[(+1,+1,+1, 1)] = 1/8
+
 gates = dict()
 gates["3-bits hash"] = trihashgate
 gates["Giant Bit"] = trirndgate
@@ -304,6 +316,7 @@ gates["XorLoss"] = xorlossgate
 gates["XorDuplicate"] = xordupgate
 gates["AndDuplicate"] = anddupgate
 gates["XorMultiCoal"] = xormulticoalgate
+gates["Majgate"] = majgate
 
 print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
 print("The SxPID for Trivariate gates (T: S_1, S_2, S_3) :")
@@ -342,13 +355,42 @@ quadhashgate[(1,1,0,1,1)] = 1/16
 quadhashgate[(1,1,1,0,1)] = 1/16
 quadhashgate[(1,1,1,1,0)] = 1/16
 
-print("***********************************")
-print("The SxPID for the four bit hash:")
-print("***********************************")
-itic = time.process_time()
-SxPID.pid(quadhashgate, verbose=4)
-itoc = time.process_time()
-print("time: ", itoc - itic, "secs")
+# Quad Majority gate T = Sgn(S_1 + S_2 + S_3)
+quadmajgate = dict()
+quadmajgate[(-1,-1,-1,-1,-1)] = 1/10
+quadmajgate[(-1,-1,-1,+1,-1)] = 1/10
+quadmajgate[(-1,-1,+1,-1,-1)] = 1/10
+quadmajgate[(-1,-1,+1,+1,+0)] = 0.
+quadmajgate[(-1,+1,-1,-1,-1)] = 1/10
+quadmajgate[(-1,+1,-1,+1,+0)] = 0.
+quadmajgate[(-1,+1,+1,-1,+0)] = 0.
+quadmajgate[(-1,+1,+1,+1,+1)] = 1/10
+quadmajgate[(+1,-1,-1,-1,-1)] = 1/10
+quadmajgate[(+1,-1,-1,+1,+0)] = 0.
+quadmajgate[(+1,-1,+1,-1,+0)] = 0.
+quadmajgate[(+1,-1,+1,+1,+1)] = 1/10
+quadmajgate[(+1,+1,-1,-1,+0)] = 0.
+quadmajgate[(+1,+1,-1,+1,+1)] = 1/10
+quadmajgate[(+1,+1,+1,-1,+1)] = 1/10
+quadmajgate[(+1,+1,+1,+1,+1)] = 1/10
+
+gates = dict()
+gates["4 Parity"] = quadhashgate
+gates["4 Majority"] = quadmajgate
+
+print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
+print("The SxPID for Quadvariate gates (T: S_1, S_2, S_3, S_4) :")
+print("+++++++++++++++++++++++++++++++++++++++++++++++++++\n\n")
+for gate in gates.keys():
+    print("**************************************")
+    print("The SxPID for the ", gate, " :")
+    print("**************************************")
+    itic = time.process_time()
+    SxPID.pid(gates[gate], verbose=4)
+    itoc = time.process_time()
+    print("time: ", itoc - itic, "secs")
+
+#^ for gate
 
 # # Bivariate 4-hash
 # n = 2
