@@ -399,13 +399,23 @@ def pid(pdf, achains=None, verbose=2, no_threads=1):
 
     # Compute and store the (+, -, +-) atoms
     if verbose & 1: print("Calculating {}-variable PID atoms...".format(pdf.nVar-1, pdf.nRlz), end='\n' if verbose & 2 else '')
-    pool = mp.Pool(processes=no_threads)
-    if verbose & 2:
-        ptw = list(tqdm(pool.imap(partial(compute_atoms, pdf, achains, achain_chld), pdf.coords), total=pdf.nRlz))
+    
+    if(no_threads > 1):
+        #Multi-threaded
+        pool = mp.Pool(processes=no_threads)
+        if verbose & 2:
+            ptw = list(tqdm(pool.imap(partial(compute_atoms, pdf, achains, achain_chld), pdf.coords), total=pdf.nRlz))
+        else:
+            ptw = pool.map(partial(compute_atoms, pdf, achains, achain_chld), pdf.coords)
+        pool.close()
     else:
-        ptw = pool.map(partial(compute_atoms, pdf, achains, achain_chld), pdf.coords)
-    if verbose & 1: print('[Done]')
+        #Single-threaded
+        rlz_iter = tqdm(pdf.coords) if verbose & 2 else pdf.coords
+        ptw = [None] * len(pdf.coords)
+        for i, rlz in enumerate(rlz_iter):
+            ptw[i] = compute_atoms(pdf, achains, achain_chld, rlz)
 
+    if verbose & 1: print('[Done]')
 
     # compute and store the average of the (+, -, +-) atoms 
     avg = dict()
