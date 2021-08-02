@@ -5,9 +5,7 @@ Shared exclusion partial information decomposition (SxPID)
 from sxpid import lattices as lt
 import numpy as np
 import math
-import time
-from itertools import chain, combinations
-from collections import defaultdict
+from itertools import chain, combinations, product
 from prettytable import PrettyTable
 
 from tqdm import tqdm
@@ -54,28 +52,33 @@ class Lattice:
     # ^ comparable()
 
     def antichain(self):
-        """Generates the nodes (antichains) of the lattice"""
-        # dummy expensive function might use dit or networkx functions
-        assert self.n < 5, "antichain(n): number of sources should be less than 5"
-        achain = []
-        for r in range(1, math.floor((2 ** self.n - 1) / 2) + 2):
-            # enumerate the power set of the powerset
-            for alpha in combinations(self.powerset(), r):
-                flag = 1
-                # check if alpha is an antichain
-                for a in list(alpha):
-                    for b in list(alpha):
-                        if a < b and self.comparable(frozenset(a), frozenset(b)):
-                            flag = 0
-                    # ^ for b
-                # ^ for a
-                if flag:
-                    achain.append(alpha)
-            # ^ for alpha
-        # ^ for r
-        return achain
 
-    # ^ antichain()
+        """Generates the nodes (antichains) of the lattice"""
+
+        pset = list(self.powerset())[:-1]# without empty and full set
+        
+        implications = [[i for (i, a) in enumerate(pset) if frozenset(s) < frozenset(a)] for s in pset]
+
+        parthood_dists = []
+        for distribution in tqdm(product([False, True], repeat=2**self.n-2), total=2**(2**self.n-2)):
+            if all(all(distribution[implication] for implication in implications[index]) for index in range(len(pset)) if distribution[index]):
+                parthood_dists += [distribution]
+
+        #Construct antichains from parthood distributions
+        antichains = []
+        for parthood_dist in parthood_dists:
+            parthood_dist = list(parthood_dist)
+            antichain = ()
+            for i in range(len(parthood_dist)):
+                if parthood_dist[i]:
+                    antichain += (pset[i],)
+                    for j in implications[i]:
+                        parthood_dist[j] = False
+            if len(antichain) == 0:
+                antichain = tuple((i+1,) for i in range(self.n))
+            antichains += [antichain]
+
+        return antichains
 
     def children(self, alpha, achain):
         """Enumerates the direct nodes (antichains) ordered by the node         
