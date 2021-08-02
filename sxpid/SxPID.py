@@ -237,6 +237,22 @@ class PDF:
         summ = np.sum(self.probs, where=sum_mask)
         return summ
 
+    def marginalize(self, coord):
+        """
+        Args:
+            coord: Coordinate to marginalize out.
+        """
+        coord = coord if coord >= 0 else self.coords.shape[1]+coord
+
+        coords_reduced = np.delete(self.coords, obj=coord, axis=1)
+
+        unique, index, inverse = np.unique(coords_reduced, return_index=True, return_inverse=True, axis=0)
+
+        newcoords = np.insert(unique, coord, self.coords[index, coord], axis=1)
+        newprobs = np.bincount(inverse, weights=self.probs)
+
+        return PDF(np.asfortranarray(newcoords), newprobs)
+
 
 # ---------------
 # pi^+(t:alpha)
@@ -375,7 +391,7 @@ def convert_achain_dict(n, achain_dict):
     return achainlist, chldlist
 
 
-def compute_atoms(pdf, achain, achain_chld, rlz):
+def compute_atoms(pdf, achain, achain_chld, parts, rlz):
     """
     Computes the pointwise partial information atoms.
 
@@ -383,6 +399,7 @@ def compute_atoms(pdf, achain, achain_chld, rlz):
         pdf: Probability density function
         achain: Antichain, bool array
         achain_chld: Children of antichain
+        parts: (mis)informative part only
         rlz: Coordinates of current realization
 
     Returns:
@@ -390,13 +407,13 @@ def compute_atoms(pdf, achain, achain_chld, rlz):
     """
     atoms = dict()
     for alpha, alphachl in zip(achain, achain_chld):
-        piplus = pi_plus(pdf, rlz, alpha, alphachl)
-        piminus = pi_minus(pdf, rlz, alpha, alphachl)
+        piplus = pi_plus(pdf, rlz, alpha, alphachl) if parts == 'all' or parts == 'inf' else np.nan
+        piminus = pi_minus(pdf, rlz, alpha, alphachl) if parts == 'all' or parts == 'mis' else np.nan
         atoms[bool_mask_to_set(alpha)] = (piplus, piminus, piplus - piminus)
     return atoms
 
 
-def pid(pdf, achains=None, verbose=2, no_threads=1):
+def pid(pdf, achains=None, verbose=2, no_threads=1, parts='all'):
     """Estimate partial information decomposition for 'n' inputs and one output
                                                                                 
     Implementation of the partial information decomposition (PID) estimator for
@@ -414,7 +431,10 @@ def pid(pdf, achains=None, verbose=2, no_threads=1):
             verbose: int bitmask: 1 - Print intermediate steps
                                   2 - Show progress bar (slight performance decrease from the use of imap instead of map)
                                   4 - Print result tables
-            no_threads: Maximum number of parallel threads (CPU only) for calculation of PID atoms. If None, use all available threads.                                              
+            no_threads: Maximum number of parallel threads (CPU only) for calculation of PID atoms. If None, use all available threads.
+            parts: 'all' - informative and misinformative part
+                   'inf' - informative part only
+                   'mis' - misinformative part only
     Returns:                                                                    
             tuple                                                               
                 ptw_dict: Pointwise partial information decomposition atoms {rlz : {achain : pid atom}}
@@ -427,6 +447,9 @@ def pid(pdf, achains=None, verbose=2, no_threads=1):
         pdf = PDF.from_dict(pdf)
         if verbose & 1:
             print("[Done]")
+
+    if parts == 'inf':
+        pdf = pdf.marginalize(-1)
 
     if verbose & 1:
         print("Loading antichain children...", end="")
@@ -456,14 +479,14 @@ def pid(pdf, achains=None, verbose=2, no_threads=1):
             ptw = list(
                 tqdm(
                     pool.imap(
-                        partial(compute_atoms, pdf, achains, achain_chld), pdf.coords
+                        partial(compute_atoms, pdf, achains, achain_chld, parts), pdf.coords
                     ),
                     total=pdf.nRlz,
                 )
             )
         else:
             ptw = pool.map(
-                partial(compute_atoms, pdf, achains, achain_chld), pdf.coords
+                partial(compute_atoms, pdf, achains, achain_chld, parts), pdf.coords
             )
         pool.close()
     else:
@@ -471,7 +494,7 @@ def pid(pdf, achains=None, verbose=2, no_threads=1):
         rlz_iter = tqdm(pdf.coords) if verbose & 2 else pdf.coords
         ptw = [None] * len(pdf.coords)
         for i, rlz in enumerate(rlz_iter):
-            ptw[i] = compute_atoms(pdf, achains, achain_chld, rlz)
+            ptw[i] = compute_atoms(pdf, achains, achain_chld, parts, rlz)
 
     if verbose & 1:
         print("[Done]")
