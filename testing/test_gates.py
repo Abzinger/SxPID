@@ -4,7 +4,6 @@ import time
 import numpy as np
 from math import log2
 from sxpid import SxPID
-from sxpid import lattices as lt 
 
 #--------
 # Test!
@@ -16,14 +15,14 @@ from sxpid import lattices as lt
 
 # Read lattices from a file
 # Pickled as { n -> [{alpha -> children}, (alpha_1,...) ] }
-lattices = lt.lattices
+lattices = {i:SxPID.load_achain_dict(i) for i in range(2, 5)}
 
 def validate(n, gate, true_values, lattices):
     ptw, _ = SxPID.pid(gate)
     for rlz in ptw.keys():
-        est_values = np.zeros(len(lattices[n][0]))
+        est_values = np.zeros(len(lattices[n]))
 
-        for i, alpha in enumerate(lattices[n][0].keys()):
+        for i, alpha in enumerate(lattices[n].keys()):
             est_values[i] = ptw[rlz][alpha][2]
         #^ for
         assert np.allclose(true_values[rlz],

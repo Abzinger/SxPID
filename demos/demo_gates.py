@@ -1,17 +1,10 @@
 # demo_gates.py
 """Demonstration for SxPID on logic gates."""
 import time
-import numpy as np
 from sxpid import SxPID
-from sxpid import lattices as lt 
 
 # Format of the pdf is 
 # dict( (s1,s2,t) : p(s1,s2,t) ) for all s1 in S1, s2 in S2, and t in T if p(s1,s2,t) > 0.
-
-
-# Read lattices from a file
-# Pickled as { n -> [{alpha -> children}, (alpha_1,...) ] }
-lattices = lt.lattices
 
 # Bivariate
 n = 2

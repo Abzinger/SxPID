@@ -4,7 +4,6 @@ from sys import path
 path.insert(0, "../../../BROJA_2PID")
 import BROJA_2PID
 from sxpid import SxPID
-from sxpid import lattices as lt
 import time
 import matplotlib.pyplot as plt
 import dit

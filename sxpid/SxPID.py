@@ -2,18 +2,16 @@
 Shared exclusion partial information decomposition (SxPID)                      
 """
 
-from sxpid import lattices as lt
 import numpy as np
 import math
 from itertools import chain, combinations, product
 from prettytable import PrettyTable
-
+from pkg_resources import resource_filename
 from tqdm import tqdm
-
 import multiprocessing as mp
-
 from functools import lru_cache
 from functools import partial
+import pickle as pkl
 
 import logging
 
@@ -351,10 +349,10 @@ def bool_mask_to_set(boolmask):
 @lru_cache(4)
 def load_achain_dict(n):
 
-    lattices = lt.lattices
+    lattices_file = resource_filename(__name__, 'lattices.pkl')
+    lattices = pkl.load(open(lattices_file, 'rb'))
 
-    return lattices[n][0]
-
+    return lattices[n]
 
 def convert_achain_dict(n, achain_dict):
     """
