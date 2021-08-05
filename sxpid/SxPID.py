@@ -53,16 +53,25 @@ class Lattice:
 
         """Generates the nodes (antichains) of the lattice"""
 
-        pset = list(self.powerset())[:-1]# without empty and full set
-        
-        implications = [[i for (i, a) in enumerate(pset) if frozenset(s) < frozenset(a)] for s in pset]
+        pset = list(self.powerset())[:-1]  # without empty and full set
+
+        implications = [
+            [i for (i, a) in enumerate(pset) if frozenset(s) < frozenset(a)]
+            for s in pset
+        ]
 
         parthood_dists = []
-        for distribution in tqdm(product([False, True], repeat=2**self.n-2), total=2**(2**self.n-2)):
-            if all(all(distribution[implication] for implication in implications[index]) for index in range(len(pset)) if distribution[index]):
+        for distribution in tqdm(
+            product([False, True], repeat=2 ** self.n - 2), total=2 ** (2 ** self.n - 2)
+        ):
+            if all(
+                all(distribution[implication] for implication in implications[index])
+                for index in range(len(pset))
+                if distribution[index]
+            ):
                 parthood_dists += [distribution]
 
-        #Construct antichains from parthood distributions
+        # Construct antichains from parthood distributions
         antichains = []
         for parthood_dist in parthood_dists:
             parthood_dist = list(parthood_dist)
@@ -73,7 +82,7 @@ class Lattice:
                     for j in implications[i]:
                         parthood_dist[j] = False
             if len(antichain) == 0:
-                antichain = tuple((i+1,) for i in range(self.n))
+                antichain = tuple((i + 1,) for i in range(self.n))
             antichains += [antichain]
 
         return antichains
@@ -242,11 +251,13 @@ class PDF:
         Args:
             coord: Coordinate to marginalize out.
         """
-        coord = coord if coord >= 0 else self.coords.shape[1]+coord
+        coord = coord if coord >= 0 else self.coords.shape[1] + coord
 
         coords_reduced = np.delete(self.coords, obj=coord, axis=1)
 
-        unique, index, inverse = np.unique(coords_reduced, return_index=True, return_inverse=True, axis=0)
+        unique, index, inverse = np.unique(
+            coords_reduced, return_index=True, return_inverse=True, axis=0
+        )
 
         newcoords = np.insert(unique, coord, self.coords[index, coord], axis=1)
         newprobs = np.bincount(inverse, weights=self.probs)
@@ -365,10 +376,11 @@ def bool_mask_to_set(boolmask):
 @lru_cache(4)
 def load_achain_dict(n):
 
-    lattices_file = resource_filename(__name__, 'lattices.pkl')
-    lattices = pkl.load(open(lattices_file, 'rb'))
+    lattices_file = resource_filename(__name__, "lattices.pkl")
+    lattices = pkl.load(open(lattices_file, "rb"))
 
     return lattices[n]
+
 
 def convert_achain_dict(n, achain_dict):
     """
@@ -403,17 +415,27 @@ def compute_atoms(pdf, achain, achain_chld, parts, rlz):
         rlz: Coordinates of current realization
 
     Returns:
-        Dictionary {alpha : pid atom}
+        array of pid atoms
     """
-    atoms = dict()
-    for alpha, alphachl in zip(achain, achain_chld):
-        piplus = pi_plus(pdf, rlz, alpha, alphachl) if parts == 'all' or parts == 'inf' else np.nan
-        piminus = pi_minus(pdf, rlz, alpha, alphachl) if parts == 'all' or parts == 'mis' else np.nan
-        atoms[bool_mask_to_set(alpha)] = (piplus, piminus, piplus - piminus)
-    return atoms
+    piplus = np.empty(len(achain))
+    piminus = np.empty(len(achain))
+
+    for i, (alpha, alphachl) in enumerate(zip(achain, achain_chld)):
+        piplus[i] = (
+            pi_plus(pdf, rlz, alpha, alphachl)
+            if parts == "all" or parts == "inf"
+            else np.nan
+        )
+        piminus[i] = (
+            pi_minus(pdf, rlz, alpha, alphachl)
+            if parts == "all" or parts == "mis"
+            else np.nan
+        )
+
+    return piplus, piminus
 
 
-def pid(pdf, achains=None, verbose=2, no_threads=1, parts='all'):
+def pid(pdf, achains=None, verbose=2, no_threads=1, parts="all", pointwise=True):
     """Estimate partial information decomposition for 'n' inputs and one output
                                                                                 
     Implementation of the partial information decomposition (PID) estimator for
@@ -435,11 +457,17 @@ def pid(pdf, achains=None, verbose=2, no_threads=1, parts='all'):
             parts: 'all' - informative and misinformative part
                    'inf' - informative part only
                    'mis' - misinformative part only
+            pointwise: return pointwise decomposition. Disabling improves single-thread memory consumption. Default: True
     Returns:                                                                    
-            tuple                                                               
-                ptw_dict: Pointwise partial information decomposition atoms {rlz : {achain : pid atom}}
+            tuple                                                
+                ptw_dict: Pointwise partial information decomposition atoms {rlz : {achain : pid atom}} if pointwise is, else None               
                 avg: Averaged pointwise partial information decomposition atoms {achain : averaged pid atom}
+                
     """
+
+    assert (
+        pointwise or not verbose & 4
+    ), "pointwise must be true to print result tables!"
 
     if type(pdf) == dict:
         if verbose & 1:
@@ -448,7 +476,7 @@ def pid(pdf, achains=None, verbose=2, no_threads=1, parts='all'):
         if verbose & 1:
             print("[Done]")
 
-    if parts == 'inf':
+    if parts == "inf":
         pdf = pdf.marginalize(-1)
 
     if verbose & 1:
@@ -479,7 +507,8 @@ def pid(pdf, achains=None, verbose=2, no_threads=1, parts='all'):
             ptw = list(
                 tqdm(
                     pool.imap(
-                        partial(compute_atoms, pdf, achains, achain_chld, parts), pdf.coords
+                        partial(compute_atoms, pdf, achains, achain_chld, parts),
+                        pdf.coords,
                     ),
                     total=pdf.nRlz,
                 )
@@ -489,37 +518,63 @@ def pid(pdf, achains=None, verbose=2, no_threads=1, parts='all'):
                 partial(compute_atoms, pdf, achains, achain_chld, parts), pdf.coords
             )
         pool.close()
+
+        if verbose & 1:
+            print("[Done]")
+
+        # compute and store the average of the (+, -, +-) atoms
+        avg = dict()
+        if verbose & 1:
+            print("Computing averages...", end="")
+        for alpha in achains:
+            alpha_set = bool_mask_to_set(alpha)
+            avgplus = 0.0
+            avgminus = 0.0
+            avgdiff = 0.0
+            for rlz in range(pdf.nRlz):
+                avgplus += pdf.probs[rlz] * ptw[rlz][alpha_set][0]
+                avgminus += pdf.probs[rlz] * ptw[rlz][alpha_set][1]
+                avgdiff += pdf.probs[rlz] * ptw[rlz][alpha_set][2]
+                avg[alpha_set] = (avgplus, avgminus, avgdiff)
+            # ^ for
+        # ^ for
+        if verbose & 1:
+            print("[Done]")
+
     else:
         # Single-threaded
+
+        avgplus = np.zeros(len(achains))
+        avgminus = np.zeros(len(achains))
+
+        ptw = []
+
         rlz_iter = tqdm(pdf.coords) if verbose & 2 else pdf.coords
-        ptw = [None] * len(pdf.coords)
         for i, rlz in enumerate(rlz_iter):
-            ptw[i] = compute_atoms(pdf, achains, achain_chld, parts, rlz)
+            pi_plus, pi_minus = compute_atoms(pdf, achains, achain_chld, parts, rlz)
 
-    if verbose & 1:
-        print("[Done]")
+            if pointwise:
+                ptw += [
+                    {
+                        alpha: (pi_plus[i], pi_minus[i], pi_plus[i] - pi_minus[i])
+                        for i, alpha in enumerate(achain_dict.keys())
+                    }
+                ]
 
-    # compute and store the average of the (+, -, +-) atoms
-    avg = dict()
-    if verbose & 1:
-        print("Computing averages...", end="")
-    for alpha in achains:
-        alpha_set = bool_mask_to_set(alpha)
-        avgplus = 0.0
-        avgminus = 0.0
-        avgdiff = 0.0
-        for rlz in range(pdf.nRlz):
-            avgplus += pdf.probs[rlz] * ptw[rlz][alpha_set][0]
-            avgminus += pdf.probs[rlz] * ptw[rlz][alpha_set][1]
-            avgdiff += pdf.probs[rlz] * ptw[rlz][alpha_set][2]
-            avg[alpha_set] = (avgplus, avgminus, avgdiff)
-        # ^ for
-    # ^ for
-    if verbose & 1:
-        print("[Done]")
+            avgplus += pdf.probs[i] * pi_plus
+            avgminus += pdf.probs[i] * pi_minus
+
+        avg = {
+            alpha: (avgplus[i], avgminus[i], avgplus[i] - avgminus[i])
+            for i, alpha in enumerate(achain_dict.keys())
+        }
+
+        if verbose & 1:
+            print("[Done]")
 
     # Create ptw_dict from pointwise atom list ptw and event labels
-    ptw_dict = dict(zip(pdf.get_labels(), ptw))
+    if pointwise:
+        ptw_dict = dict(zip(pdf.get_labels(), ptw))
 
     # Print the result if asked
     if verbose & 4:
@@ -599,7 +654,7 @@ def pid(pdf, achains=None, verbose=2, no_threads=1, parts='all'):
         print(table)
     # ^ if printing
 
-    return ptw_dict, avg
+    return (ptw_dict, avg) if pointwise else avg
 
 
 # ^ jxpid()
