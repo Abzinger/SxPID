@@ -3,30 +3,53 @@
 import time
 import numpy as np
 from math import log2
+import sys
+
+sys.path.append(".")
 from sxpid import SxPID
 
-#--------
+# --------
 # Test!
-#-------
+# -------
 
-# Format of the pdf is 
+# Format of the pdf is
 # dict( (s1,s2,t) : p(s1,s2,t) ) for all s1 in S1, s2 in S2, and t in T if p(s1,s2,t) > 0.
 
 
-# Read lattices from a file
-# Pickled as { n -> [{alpha -> children}, (alpha_1,...) ] }
-lattices = {i:SxPID.load_achain_dict(i) for i in range(2, 5)}
+# Use old lattice order
+lattices = {
+    2: [((1,),), ((2,),), ((1, 2),), ((1,), (2,))],
+    3: [
+        ((1,),),
+        ((2,),),
+        ((3,),),
+        ((1, 2),),
+        ((1, 3),),
+        ((2, 3),),
+        ((1, 2, 3),),
+        ((1,), (2,)),
+        ((1,), (3,)),
+        ((1,), (2, 3)),
+        ((2,), (3,)),
+        ((2,), (1, 3)),
+        ((3,), (1, 2)),
+        ((1, 2), (1, 3)),
+        ((1, 2), (2, 3)),
+        ((1, 3), (2, 3)),
+        ((1,), (2,), (3,)),
+        ((1, 2), (1, 3), (2, 3)),
+    ],
+}
 
 def validate(n, gate, true_values, lattices):
     ptw, _ = SxPID.pid(gate)
     for rlz in ptw.keys():
         est_values = np.zeros(len(lattices[n]))
 
-        for i, alpha in enumerate(lattices[n].keys()):
+        for i, alpha in enumerate(lattices[n]):
             est_values[i] = ptw[rlz][alpha][2]
-        #^ for
-        assert np.allclose(true_values[rlz],
-                           est_values)
+        # ^ for
+        assert np.allclose(true_values[rlz], est_values)
         # , (
         #                        'pointwise values at ({0},{1},{2}) are not [{3:.8f}, {4:.8f}, {5:.8f}, {6:.8f}]'.format(
         #                            rlz[0], rlz[1], rlz[2],
@@ -35,8 +58,7 @@ def validate(n, gate, true_values, lattices):
         #                            true_values[rlz][2],
         #                            true_values[rlz][3],)
         #                    )
-    #^ for
-#^ validate()
+    # ^ for
 
 
 #-----------------

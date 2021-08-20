@@ -58,7 +58,7 @@ def compute_pid(nT, nX, nY, nZ, maxiter):
 
         print("Run SxPID.pid().")
         itic = time.time()
-        ptw,avg = SxPID.pid(pdf, no_threads=None)       
+        ptw,avg = SxPID.pid(pdf, n_threads="all")       
         itoc = time.time()
 
         # Print PID details
@@ -140,6 +140,7 @@ Where: t    is the size of the range of T;
 #--------
 # Run It!
 #--------
-Main(argv)
+if __name__=='__main__':
+    Main([10, 10, 10, 10, 10, 10])
 
 #EOF
