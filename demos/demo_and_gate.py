@@ -1,13 +1,7 @@
 # demo_and_gate.py
 
 from sxpid import SxPID
-from sxpid import lattices as lt 
 import time
-
-
-# Unpickle the lattices from a file
-# Pickled as { n -> [{alpha -> children}, (alpha_1,...) ] }
-lattices = lt.lattices
 
 # Format of the pdf is 
 # { (s1,s2,t) -> p(s1,s2,t) } for all s1 in S1, s2 in S2, and t in T.

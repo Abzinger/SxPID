@@ -2,101 +2,123 @@
 Shared exclusion partial information decomposition (SxPID)                      
 """
 
-from sxpid import lattices as lt
 import numpy as np
-import math
-import time
-from itertools import chain, combinations
-from collections import defaultdict
-from prettytable import PrettyTable
-
-from tqdm import tqdm
-
+from itertools import chain, combinations, product
+from prettytable import PrettyTable  # type: ignore
+from pkg_resources import resource_filename  # type: ignore
+from tqdm import tqdm  # type: ignore
 import multiprocessing as mp
-
-from functools import lru_cache
-from functools import partial
-
-import logging
+from functools import partial, lru_cache, reduce
+import pickle as pkl
 
 # ---------
 # Lattice
 # ---------
 class Lattice:
-    """Generates the redundancy lattice for 'n' sources                         
-    The algerbric structure on which partial information decomposition is       
-    build on.                                                                   
+    """Generates the redundancy lattice for 'n' sources
+    The algerbric structure on which partial information decomposition is
+    build.
     """
 
-    def __init__(self, n):
+    def __init__(self, n, achains):
         self.n = n
         self.lis = [i for i in range(1, self.n + 1)]
-
-    # ^ _init_()
+        self._achains = achains
 
     def powerset(self):
         return chain.from_iterable(
             combinations(self.lis, r) for r in range(1, len(self.lis) + 1)
         )
 
-    # ^ powerset()
-
     def less_than(self, beta, alpha):
-        """compare whether an antichain beta is smaller than antichain          
+        """compare whether an antichain beta is smaller than antichain
         alpha"""
         return all(any(frozenset(b) <= frozenset(a) for b in beta) for a in alpha)
 
-    # ^ compare()
-
-    def comparable(self, a, b):
-        return a < b or a > b
-
-    # ^ comparable()
-
     def antichain(self):
         """Generates the nodes (antichains) of the lattice"""
-        # dummy expensive function might use dit or networkx functions
-        assert self.n < 5, "antichain(n): number of sources should be less than 5"
-        achain = []
-        for r in range(1, math.floor((2 ** self.n - 1) / 2) + 2):
-            # enumerate the power set of the powerset
-            for alpha in combinations(self.powerset(), r):
-                flag = 1
-                # check if alpha is an antichain
-                for a in list(alpha):
-                    for b in list(alpha):
-                        if a < b and self.comparable(frozenset(a), frozenset(b)):
-                            flag = 0
-                    # ^ for b
-                # ^ for a
-                if flag:
-                    achain.append(alpha)
-            # ^ for alpha
-        # ^ for r
-        return achain
 
-    # ^ antichain()
+        pset = list(self.powerset())[:-1]  # without empty and full set
 
-    def children(self, alpha, achain):
-        """Enumerates the direct nodes (antichains) ordered by the node         
-        (antichain) 'alpha'"""
-        chl = []
-        downset = [
-            beta for beta in achain if self.less_than(beta, alpha) and beta != alpha
+        implications = [
+            [i for (i, a) in enumerate(pset) if frozenset(s) < frozenset(a)]
+            for s in pset
         ]
+
+        parthood_dists = []
+        for distribution in tqdm(
+            product([False, True], repeat=2 ** self.n - 2), total=2 ** (2 ** self.n - 2)
+        ):
+            if all(
+                all(distribution[implication] for implication in implications[index])
+                for index in range(len(pset))
+                if distribution[index]
+            ):
+                parthood_dists += [distribution]
+
+        # Construct antichains from parthood distributions
+        antichains = []
+        for parthood_dist in parthood_dists:
+            parthood_dist = list(parthood_dist)
+            antichain = ()
+            for i in range(len(parthood_dist)):
+                if parthood_dist[i]:
+                    antichain += (pset[i],)
+                    for j in implications[i]:
+                        parthood_dist[j] = False
+            if len(antichain) == 0:
+                antichain = (tuple(i + 1 for i in range(self.n)),)
+            antichains += [antichain]
+
+        self._achains = antichains
+
+        return antichains
+
+    def downset(self, alpha):
+        """Computes the nodes (antichains) ordered below the node (antichain) 'alpha'"""
+        return [
+            beta
+            for beta in self._achains
+            if self.less_than(beta, alpha) and beta != alpha
+        ]
+
+    def children(self, alpha):
+        """Enumerates the direct nodes (antichains) ordered by the node
+        (antichain) 'alpha'"""
+
+        assert self._achains is not None
+
+        chl = []
+        downset = self.downset(alpha)
+
         for beta in downset:
             if all(
                 not self.less_than(beta, gamma) for gamma in downset if gamma != beta
             ):
                 chl.append(beta)
-            # ^ if
-        # ^ for beta
+
         return chl
 
-    # ^ children()
+    def compute_moebius_inversion(self):
+        # Using linear algebra
 
+        assert self._achains is not None
+        # Generate the forward matrix
+        print("Generating forward function...")
+        forward = [
+            [
+                1 if beta == alpha or self.less_than(beta, alpha) else 0
+                for beta in self._achains
+            ]
+            for alpha in self._achains
+        ]
 
-# ^ Lattice()
+        print("Inverting matrix")
+        inversion = np.around(np.linalg.inv(forward)).astype(np.byte)
+
+        print("Done!")
+        return inversion
+
 
 # ---------
 # PDF
@@ -199,6 +221,15 @@ class PDF:
 
         return pdf
 
+    def __getitem__(self, rlz):
+        """Returns the probability of a given realization
+
+        Args:
+            rlz ([type]): [description]
+        """
+        idx = np.argmax(np.all(self.coords == rlz, axis=1))
+        return self.probs[idx]
+
     def get_labels(self):
         """
         Returns list of length nRlz with the original event labels, reconstructed from labels. If no labels are given, returns list of tuples of coordinates.
@@ -236,189 +267,145 @@ class PDF:
         summ = np.sum(self.probs, where=sum_mask)
         return summ
 
+    def marginalize(self, *coords):
+        """
+        Args:
+            coord: Coordinate to marginalize out.
+        """
+        coords = [
+            coord if coord >= 0 else self.coords.shape[1] + coord for coord in coords
+        ]
 
-# ---------------
-# pi^+(t:alpha)
-#    and
-# pi^-(t:alpha)
-# ---------------
+        coords_reduced = np.delete(self.coords, obj=coords, axis=1)
 
+        unique, index, inverse = np.unique(
+            coords_reduced, return_index=True, return_inverse=True, axis=0
+        )
 
-def differs(pdf, rlz, alpha, chl, target=False):
-    """Compute the probability mass difference                                  
-    For a node 'alpha' and any child gamma of alpha it computes p(gamma) -      
-    p(alpha) for all gamma"""
+        newprobs = np.bincount(inverse, weights=self.probs)
 
-    chlt = []
-    for c in chl:
-        newcolumn = np.full((c.shape[0], 1), target)
-        chlt.append(np.append(c, newcolumn, axis=1))
-
-    newcolumn = np.full((alpha.shape[0], 1), target)
-    alphat = np.append(alpha, newcolumn, axis=1)
-
-    if chlt == [] and target:
-        full = np.full((1, pdf.nVar), False)
-        full[:, -1] = target
-        base = pdf.probu_one_rlz(rlz, full) / pdf.probu_one_rlz(rlz, alphat)
-    else:
-        base = pdf.probu_one_rlz(rlz, alphat)
-
-    temp_diffs = [pdf.probu_one_rlz(rlz, gamma) - base for gamma in chlt]
-    temp_diffs.sort()
-    return [base] + temp_diffs
+        return PDF(np.asfortranarray(unique), newprobs)
 
 
-@lru_cache(32)
-def sgn(num_chld):
-    """
-    Recurrsive function that generates the signs (+ or -) for the            
-    inclusion-exculison principle
-    """
-    if num_chld == 0:
-        return np.array([+1])
-    else:
-        rec = sgn(num_chld - 1)
-        return np.concatenate((rec, -rec))
-
-
-def vec(num_chld, diffs):
-    """
-    Args: 
-      num_chld : the number of the children of alpha: (gamma_1,...,gamma_{num_chld}) 
-      diffs : vector of probability differences 
-              (d_i)_i where d_i = p(gamma_i) - p(alpha) and d_0 = p(alpha)  
-    """
-    vec = np.empty(2 ** num_chld)
-    vec[0] = diffs[0]
-    for i in range(num_chld):
-        length = 2 ** i
-        vec[length : 2 * length] = vec[0:length] + diffs[i + 1]
-    return vec
-
-
-def pi_plus(pdf, rlz, alpha, chld):
-    """Compute the informative PPID """
-    diffs = differs(pdf, rlz, alpha, chld, False)
-    return np.dot(sgn(len(chld)), -np.log2(vec(len(chld), diffs)))
-
-
-# ^ pi_plus()
-
-
-def pi_minus(pdf, rlz, alpha, chld):
-    """Compute the misinformative PPID """
-    diffs = differs(pdf, rlz, alpha, chld, True)
-    if chld == []:
-        return np.dot(sgn(len(chld)), np.log2(vec(len(chld), diffs)))
-    else:
-        return np.dot(sgn(len(chld)), -np.log2(vec(len(chld), diffs)))
-    # ^ if bottom
-
-
-# ^ pi_minus()
-
-
-def set_to_bool_mask(n, sett):
+def get_bool_mask(n, sett, condition_on_target):
     """
     Convert set of sets (i.e. tuple of tuples of integers) to bool mask description of set
     e.g. ((1,), (1, 2, 4)) -> np.array([True, False, False, False],[True, True, False, True]])
+    Appends boolean for target variable that dicides whether target is conditioned on
 
     Args:
         n:  Number of variables, length of returned boolean array
         sett:   Tuple of tuples of integers <= n
+        condition_on_target: bool, set last element of mask to this value
     """
-    ret = np.full((len(sett), n), False)
+    ret = np.full((len(sett), n + 1), False)
     for i in range(len(sett)):
         ret[i, np.array(sett[i]) - 1] = True
+        ret[i, -1] = condition_on_target
     return ret
 
 
-def bool_mask_to_set(boolmask):
-    """
-    Inverse to set_to_bool_mask
-    """
-    setofsets = ()
-    for boolset in boolmask:
-        sett = tuple(np.nonzero(boolset)[0] + 1)
-        setofsets += (sett,)
-    return setofsets
+@lru_cache
+def load_achains(n):
 
+    lattice_file_name = resource_filename(__name__, "moebius.pkl")
 
-@lru_cache(4)
-def load_achain_dict(n):
-
-    lattices = lt.lattices
+    with open(lattice_file_name, "rb") as lattice_file:
+        lattices = pkl.load(lattice_file)
 
     return lattices[n][0]
 
 
-def convert_achain_dict(n, achain_dict):
-    """
-    Converts antichain-dictionary to internal representation using boolean arrays
+@lru_cache
+def load_moebius_function(n):
+
+    moebius_file_name = resource_filename(__name__, "moebius.pkl")
+
+    with open(moebius_file_name, "rb") as moebius_file:
+        moebius_data = pkl.load(moebius_file)
+
+    return np.array(moebius_data[n][1])
+
+
+def compute_i_cap_plus(pdf, achains_t, rlz):
+    """Computes the local redundancies i_\cap for the given realization
 
     Args:
-        n: Number of variables
-        achain_dict: Antichain dictionary {achain : [children]}
-
-    Returns:
-        achainlist: list of sets (in bool_mask representation, see set_to_bool_mask())
-        chldlist: list of list of children sets of corresponding antichains in achainlist
+        pdf ([type]): [description]
+        achains ([type]): [description]
+        rlz ([type]): [description]
     """
-    achainlist = []
-    chldlist = []
-    for achain in achain_dict.keys():
-        achainlist.append(set_to_bool_mask(n, achain))
-        chldlist.append([set_to_bool_mask(n, child) for child in achain_dict[achain]])
 
-    return achainlist, chldlist
+    # Informative part
+    i_cap_plus = -np.log2(
+        np.array([pdf.probu_one_rlz(rlz, alphat) for alphat in achains_t])
+    )
+
+    return i_cap_plus
 
 
-def compute_atoms(pdf, achain, achain_chld, rlz):
-    """
-    Computes the pointwise partial information atoms.
+@lru_cache
+def get_full(n):
+    full = np.full((1, n), False)
+    full[:, -1] = True
+    return full
+
+
+def compute_i_cap_minus(pdf, achains_t, rlz):
+    """Computes the local redundancies i_\cap for the given realization
 
     Args:
-        pdf: Probability density function
-        achain: Antichain, bool array
-        achain_chld: Children of antichain
-        rlz: Coordinates of current realization
-
-    Returns:
-        Dictionary {alpha : pid atom}
+        pdf ([type]): [description]
+        achains ([type]): [description]
+        part ([type]): "pos" or "neg"
+        rlz ([type]): [description]
     """
-    atoms = dict()
-    for alpha, alphachl in zip(achain, achain_chld):
-        piplus = pi_plus(pdf, rlz, alpha, alphachl)
-        piminus = pi_minus(pdf, rlz, alpha, alphachl)
-        atoms[bool_mask_to_set(alpha)] = (piplus, piminus, piplus - piminus)
-    return atoms
+
+    full = get_full(pdf.nVar)
+
+    # Misinformative part
+    i_cap_minus = np.log2(
+        pdf.probu_one_rlz(rlz, full)
+        / np.array([pdf.probu_one_rlz(rlz, alphat) for alphat in achains_t])
+    )
+
+    return i_cap_minus
 
 
-def pid(pdf, achains=None, verbose=2, no_threads=1):
+def pid(pdf, achains=None, verbose=2, n_threads=1, parts="all", pointwise=True):
     """Estimate partial information decomposition for 'n' inputs and one output
-                                                                                
+
     Implementation of the partial information decomposition (PID) estimator for
-    discrete data. The estimator finds shared information, unique information   
-    and synergistic information between the two, three, or four inputs with     
-    respect to the output t.                                                    
-                                                                                
-    P.S. The implementation can be extended to any number 'n' of variables if   
-    their corresponding redundancy lattice is provided ( check Lattice() )      
-                                                                                
-    Args:                                                                       
-            pdf: Joint probability density of sources and target. The last variable will be treated as the target, i.e. function performs (pdf.nVar-1)-variable PID.  
-            achain : Dictionary {achain -> [children]} with sets encoded as tuples of integers. Will attempt to load from ./sxpid/lattices.pkl if not supplied.
-                     Alternatively, list [achain], children are automatically fetched from file.
-            verbose: int bitmask: 1 - Print intermediate steps
-                                  2 - Show progress bar (slight performance decrease from the use of imap instead of map)
-                                  4 - Print result tables
-            no_threads: Maximum number of parallel threads (CPU only) for calculation of PID atoms. If None, use all available threads.                                              
-    Returns:                                                                    
-            tuple                                                               
-                ptw_dict: Pointwise partial information decomposition atoms {rlz : {achain : pid atom}}
-                avg: Averaged pointwise partial information decomposition atoms {achain : averaged pid atom}
+    discrete data. The estimator finds shared information, unique information
+    and synergistic information between the two, three, or four inputs with
+    respect to the output t.
+
+    P.S. The implementation can be extended to any number 'n' of variables if
+    their corresponding redundancy lattice is provided ( check Lattice() )
+
+    Args:
+        pdf (PDF | dict[tuple[Any, ...], float]): Joint probability density of sources and target. The last variable will be treated as the target, i.e. function performs (pdf.nVar-1)-variable PID.
+        achains (dict[tuple: list[tuples]}, optional): Dictionary {achain: [children]} with sets encoded as tuples of integers. Will attempt to load from ./sxpid/lattices.pkl if not supplied. Defaults to None.
+        verbose (int, optional): bitmask:   1 - Print intermediate steps
+                                            2 - Show progress bar (slight performance decrease from the use of imap instead of map)
+                                            4 - Print result tables.
+                                Defaults to 2.
+        n_threads (int or 'all', optional): Maximum number of parallel threads (CPU only) for calculation of PID atoms. If None, use all available threads. Defaults to 1.
+        parts (str, optional):  'all' - informative and misinformative part
+                                'inf' - informative part only
+                                'mis' - misinformative part only.
+                                Defaults to "all".
+        pointwise (bool, optional): Return pointwise decomposition. Disabling improves single-thread memory consumption. Defaults to True.
+
+    Returns:
+        tuple:
+            ptw_dict: Pointwise partial information decomposition atoms {rlz : {achain : pid atom}} if pointwise is True, else None
+            avg: Averaged pointwise partial information decomposition atoms {achain : averaged pid atom}
     """
+
+    assert (
+        pointwise or not verbose & 4
+    ), "pointwise must be true to print result tables!"
 
     if type(pdf) == dict:
         if verbose & 1:
@@ -427,75 +414,139 @@ def pid(pdf, achains=None, verbose=2, no_threads=1):
         if verbose & 1:
             print("[Done]")
 
+    n = pdf.nVar - 1
+
     if verbose & 1:
-        print("Loading antichain children...", end="")
-    if type(achains) is dict:
-        achain_dict = achains
-    else:
-        achain_dict = load_achain_dict(pdf.nVar - 1)
+        print("Loading antichains and moebius function...", end="")
 
-        if type(achains) is list:
-            achain_dict = {achain: achain_dict[achain] for achain in achains}
+    if type(achains) is not dict:
+        achains = load_achains(n)
 
-    achains, achain_chld = convert_achain_dict(pdf.nVar - 1, achain_dict)
+    moebius_func = load_moebius_function(n)
+
     if verbose & 1:
         print("[Done]")
 
     # Compute and store the (+, -, +-) atoms
     if verbose & 1:
         print(
-            "Calculating {}-variable PID atoms...".format(pdf.nVar - 1, pdf.nRlz),
+            f"Calculating {n}-variable PID atoms...",
             end="\n" if verbose & 2 else "",
         )
 
-    if no_threads > 1:
-        # Multi-threaded
-        pool = mp.Pool(processes=no_threads)
-        if verbose & 2:
-            ptw = list(
-                tqdm(
-                    pool.imap(
-                        partial(compute_atoms, pdf, achains, achain_chld), pdf.coords
-                    ),
-                    total=pdf.nRlz,
-                )
-            )
-        else:
-            ptw = pool.map(
-                partial(compute_atoms, pdf, achains, achain_chld), pdf.coords
-            )
+    # Compute the redundancies
+
+    if n_threads == "all":
+        n_threads = mp.cpu_count()
+    if verbose & 1:
+        print(f"Computing on {n_threads} processes.")
+
+    elif n_threads > 1:
+        pool = mp.Pool(processes=n_threads)
+
+    mapper = pool.imap if n_threads > 1 else map
+
+    achain_masks_uncond = [get_bool_mask(n, alpha, False) for alpha in achains]
+    achain_masks_cond = [get_bool_mask(n, alpha, True) for alpha in achains]
+
+    if parts == "inf" or parts == "all":
+        i_cap_plus = tqdm(
+            mapper(partial(compute_i_cap_plus, pdf, achain_masks_uncond), pdf.coords),
+            total=pdf.nRlz,
+        )
+
+    if parts == "mis" or parts == "all":
+        i_cap_minus = tqdm(
+            mapper(partial(compute_i_cap_minus, pdf, achain_masks_cond), pdf.coords),
+            total=pdf.nRlz,
+        )
+
+    if verbose & 1:
+        print("[Done]")
+        print("Computing Moebius inverse...", end="")
+
+    if n_threads > 1:
         pool.close()
+
+    # Compute the Moebius inversion
+
+    if pointwise:
+        # Collect all pointwise values
+        if parts == "inf" or parts == "all":
+            i_cap_plus = np.array(list(i_cap_plus))
+
+        if parts == "mis" or parts == "all":
+            i_cap_minus = np.array(list(i_cap_minus))
+
+        # Compute Moebius inverse of pointwise
+        if parts == "inf" or parts == "all":
+            pi_plus = moebius_func @ i_cap_plus.T
+        else:
+            pi_plus = np.full(pdf.nRlz, np.nan)
+
+        if parts == "mis" or parts == "all":
+            pi_minus = moebius_func @ i_cap_minus.T
+        else:
+            pi_minus = np.full(pdf.nRlz, np.nan)
+
+        pi = pi_plus - pi_minus
+
+        # Convert pointwise values to dictionary format
+        ptw = [
+            {
+                achain: pies
+                for (achain, pies) in zip(
+                    achains, zip(pi_plus[:, i], pi_minus[:, i], pi[:, i])
+                )
+            }
+            for i in range(pdf.nRlz)
+        ]
+        ptw_dict = dict(zip(pdf.get_labels(), ptw))
+
+        # Compute average quantities
+        Pi_plus = pi_plus @ pdf.probs
+        Pi_minus = pi_minus @ pdf.probs
+
+        Pi = Pi_plus - Pi_minus
+
     else:
-        # Single-threaded
-        rlz_iter = tqdm(pdf.coords) if verbose & 2 else pdf.coords
-        ptw = [None] * len(pdf.coords)
-        for i, rlz in enumerate(rlz_iter):
-            ptw[i] = compute_atoms(pdf, achains, achain_chld, rlz)
+        # Accelerate computation and reduce memory footprint by first computing average redundancies
+        # and then computing Moebius inverse
+
+        # Average i_cap
+
+        if parts == "inf" or parts == "all":
+            I_cap_plus = reduce(
+                lambda cumsum, arg: cumsum + arg[0] * arg[1],
+                zip(i_cap_plus, pdf.probs),
+                np.zeros(len(achains)),
+            )
+
+        if parts == "mis" or parts == "all":
+            I_cap_minus = reduce(
+                lambda cumsum, arg: cumsum + arg[0] * arg[1],
+                zip(i_cap_minus, pdf.probs),
+                np.zeros(len(achains)),
+            )
+
+        # Compute Moebius inverse
+        if parts == "inf" or parts == "all":
+            Pi_plus = moebius_func @ I_cap_plus
+        else:
+            Pi_plus = np.full(len(achains), np.nan)
+
+        if parts == "mis" or parts == "all":
+            Pi_minus = moebius_func @ I_cap_minus
+        else:
+            Pi_minus = np.full(len(achains), np.nan)
+
+        Pi = Pi_plus - Pi_minus
+
+    # Convert average PID values to dictionary format
+    avg = {achain: pies for (achain, pies) in zip(achains, zip(Pi_plus, Pi_minus, Pi))}
 
     if verbose & 1:
         print("[Done]")
-
-    # compute and store the average of the (+, -, +-) atoms
-    avg = dict()
-    if verbose & 1:
-        print("Computing averages...", end="")
-    for alpha in achains:
-        alpha_set = bool_mask_to_set(alpha)
-        avgplus = 0.0
-        avgminus = 0.0
-        avgdiff = 0.0
-        for rlz in range(pdf.nRlz):
-            avgplus += pdf.probs[rlz] * ptw[rlz][alpha_set][0]
-            avgminus += pdf.probs[rlz] * ptw[rlz][alpha_set][1]
-            avgdiff += pdf.probs[rlz] * ptw[rlz][alpha_set][2]
-            avg[alpha_set] = (avgplus, avgminus, avgdiff)
-        # ^ for
-    # ^ for
-    if verbose & 1:
-        print("[Done]")
-
-    # Create ptw_dict from pointwise atom list ptw and event labels
-    ptw_dict = dict(zip(pdf.get_labels(), ptw))
 
     # Print the result if asked
     if verbose & 4:
@@ -504,15 +555,14 @@ def pid(pdf, achains=None, verbose=2, no_threads=1):
         for rlz in ptw_dict:
             count = 0
             for alpha in achains:
-                alpha = bool_mask_to_set(alpha)
                 stalpha = ""
                 for a in alpha:
                     stalpha += "{"
                     for i in a:
                         stalpha += str(i)
-                    # ^ for i
+
                     stalpha += "}"
-                # ^ for a
+
                 if count == 0:
                     table.add_row(
                         [
@@ -534,22 +584,20 @@ def pid(pdf, achains=None, verbose=2, no_threads=1):
                         ]
                     )
                 count += 1
-            # ^ for alpha
+
             table.add_row(["*", "*", "*", "*", "*"])
-        # ^ for realization
 
         table.add_row(["-", "-", "-", "-", "-"])
         count = 0
         for alpha in achains:
-            alpha = bool_mask_to_set(alpha)
             stalpha = ""
             for a in alpha:
                 stalpha += "{"
                 for i in a:
                     stalpha += str(i)
-                # ^ for i
+
                 stalpha += "}"
-            # ^ for a
+
             if count == 0:
                 table.add_row(
                     [
@@ -571,12 +619,7 @@ def pid(pdf, achains=None, verbose=2, no_threads=1):
                     ]
                 )
             count += 1
-        # ^ for alpha
+
         print(table)
-    # ^ if printing
 
-    return ptw_dict, avg
-
-
-# ^ jxpid()
-
+    return (ptw_dict, avg) if pointwise else avg
