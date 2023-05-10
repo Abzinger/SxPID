@@ -12,6 +12,7 @@ with open('requirements.txt') as fp:
 setup(
     name='sxpid',
     packages=['sxpid'],
+    package_data={'sxpid':['moebius.pkl']},
     version='1.0',
     description='Shared Exclusion Partial Information Decomposition',
     author='Abdullah Makkeh',
