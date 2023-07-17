@@ -470,7 +470,7 @@ def pid(pdf, achains=None, verbose=2, n_threads=1, parts="all", pointwise=True):
 
     # Compute the Moebius inversion
 
-    if pointwise:
+    if pointwise == True:
         # Collect all pointwise values
         if parts == "inf" or parts == "all":
             i_cap_plus = np.array(list(i_cap_plus))
@@ -480,14 +480,14 @@ def pid(pdf, achains=None, verbose=2, n_threads=1, parts="all", pointwise=True):
 
         # Compute Moebius inverse of pointwise
         if parts == "inf" or parts == "all":
-            pi_plus = moebius_func @ i_cap_plus.T
+            pi_plus = (moebius_func @ i_cap_plus.T).T
         else:
-            pi_plus = np.full(pdf.nRlz, np.nan)
+            pi_plus = np.full((pdf.nRlz, len(achains)), np.nan)
 
         if parts == "mis" or parts == "all":
-            pi_minus = moebius_func @ i_cap_minus.T
+            pi_minus = (moebius_func @ i_cap_minus.T).T
         else:
-            pi_minus = np.full(pdf.nRlz, np.nan)
+            pi_minus = np.full((pdf.nRlz, len(achains)), np.nan)
 
         pi = pi_plus - pi_minus
 
@@ -496,7 +496,7 @@ def pid(pdf, achains=None, verbose=2, n_threads=1, parts="all", pointwise=True):
             {
                 achain: pies
                 for (achain, pies) in zip(
-                    achains, zip(pi_plus[:, i], pi_minus[:, i], pi[:, i])
+                    achains, zip(pi_plus[i], pi_minus[i], pi[i])
                 )
             }
             for i in range(pdf.nRlz)
@@ -504,8 +504,71 @@ def pid(pdf, achains=None, verbose=2, n_threads=1, parts="all", pointwise=True):
         ptw_dict = dict(zip(pdf.get_labels(), ptw))
 
         # Compute average quantities
-        Pi_plus = pi_plus @ pdf.probs
-        Pi_minus = pi_minus @ pdf.probs
+        Pi_plus = pi_plus.T @ pdf.probs
+        Pi_minus = pi_minus.T @ pdf.probs
+
+        Pi = Pi_plus - Pi_minus
+    
+    elif pointwise == "target":
+        # Average over everything except the target variable
+        targets = pdf.coords[:, -1]
+        unique_targets, unique_target_indices = np.unique(targets, return_index=True)
+        unique_target_labels = [pdf.get_labels()[unique_target_index][-1] for unique_target_index in unique_target_indices]
+        n_targets = len(unique_targets)
+
+        unique_target_probs = np.array([pdf.probu_one_rlz(tuple(0 for _ in range(n)) + (target,), 
+                                                 union_masks=[np.array([False for _ in range(n)] + [True])])
+                                                 for target in unique_targets])
+
+        def reduce_targetlocal(cumsum, prob, icap, target):
+            cumsum[target] += prob * icap
+            return cumsum
+
+        if parts == "inf" or parts == "all":
+            i_cap_plus_target = reduce(
+                lambda cumsum, arg: reduce_targetlocal(cumsum, *arg),
+                zip(pdf.probs, i_cap_plus, targets),
+                np.zeros((n_targets, len(achains))),
+            )
+            i_cap_plus_target = i_cap_plus_target / unique_target_probs[:, None]
+
+
+        if parts == "mis" or parts == "all":
+            i_cap_minus_target = reduce(
+                lambda cumsum, arg: reduce_targetlocal(cumsum, *arg),
+                zip(pdf.probs, i_cap_minus, targets),
+                np.zeros((n_targets, len(achains))),
+            )
+            i_cap_minus_target = i_cap_minus_target / unique_target_probs[:, None]
+
+        # Compute Moebius inverse
+        if parts == "inf" or parts == "all":
+            pi_plus_target = (moebius_func @ i_cap_plus_target.T).T
+        else:
+            pi_plus_target = np.full((len(achains), n_targets), np.nan)
+
+        if parts == "mis" or parts == "all":
+            pi_minus_target = (moebius_func @ i_cap_minus_target.T).T
+        else:
+            pi_minus_target = np.full((len(achains), n_targets), np.nan)
+
+        pi_target = pi_plus_target - pi_minus_target
+
+        # Convert pointwise values to pointwise dictionary format
+        ptw_target = [
+            {
+                achain: pies
+                for (achain, pies) in zip(
+                    achains, zip(pi_plus_target[i], pi_minus_target[i], pi_target[i])
+                )
+            }
+            for i in range(n_targets)
+        ]
+        ptw_dict = dict(zip(unique_target_labels, ptw_target))
+
+        # Compute average quantities
+        Pi_plus = pi_plus_target.T @ unique_target_probs
+        Pi_minus = pi_minus_target.T @ unique_target_probs
 
         Pi = Pi_plus - Pi_minus
 

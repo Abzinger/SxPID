@@ -42,23 +42,27 @@ lattices = {
 }
 
 def validate(n, gate, true_values, lattices):
-    ptw, _ = SxPID.pid(gate)
+    ptw, ptw_avg = SxPID.pid(gate, pointwise=True)
+    target_ptw, target_ptw_avg = SxPID.pid(gate, pointwise="target")
+    direct_avg = SxPID.pid(gate, pointwise=False)
+
+    # Check pointwise values:
     for rlz in ptw.keys():
         est_values = np.zeros(len(lattices[n]))
 
         for i, alpha in enumerate(lattices[n]):
             est_values[i] = ptw[rlz][alpha][2]
-        # ^ for
+
         assert np.allclose(true_values[rlz], est_values)
-        # , (
-        #                        'pointwise values at ({0},{1},{2}) are not [{3:.8f}, {4:.8f}, {5:.8f}, {6:.8f}]'.format(
-        #                            rlz[0], rlz[1], rlz[2],
-        #                            true_values[rlz][0],
-        #                            true_values[rlz][1],
-        #                            true_values[rlz][2],
-        #                            true_values[rlz][3],)
-        #                    )
-    # ^ for
+
+    # Check average values:
+    true_avg = np.array([true_values[rlz] * gate[rlz] for rlz in gate.keys()]).sum(axis=0)
+    ptw_avg_array = np.array([ptw_avg[alpha][2] for alpha in lattices[n]])
+    assert np.allclose(true_avg, ptw_avg_array)
+    target_ptw_avg_array = np.array([target_ptw_avg[alpha][2] for alpha in lattices[n]])
+    assert np.allclose(true_avg, target_ptw_avg_array)
+    direct_avg_array = np.array([direct_avg[alpha][2] for alpha in lattices[n]])
+    assert np.allclose(true_avg, direct_avg_array)
 
 
 #-----------------
@@ -610,3 +614,6 @@ def test_xorcopy_gate():
 
 #     validate(3, xormulticoalgate, true_values, lattices)
 # #^ test_xormulticoal_gate()
+
+if __name__=="__main__":
+    test_xor_gate()
