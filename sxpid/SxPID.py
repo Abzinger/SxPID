@@ -372,7 +372,7 @@ def compute_i_cap_minus(pdf, achains_t, rlz):
     return i_cap_minus
 
 
-def pid(pdf, achains=None, verbose=2, n_threads=1, parts="all", pointwise=True):
+def pid(pdf, achains=None, verbose=2, n_threads=1, parts="all", pointwise=True, showProgress=False):
     """Estimate partial information decomposition for 'n' inputs and one output
 
     Implementation of the partial information decomposition (PID) estimator for
@@ -444,22 +444,31 @@ def pid(pdf, achains=None, verbose=2, n_threads=1, parts="all", pointwise=True):
     elif n_threads > 1:
         pool = mp.Pool(processes=n_threads)
 
-    mapper = pool.imap if n_threads > 1 else map
+    imap = pool.imap if n_threads > 1 else map
+
+    if showProgress == "tqdm":
+        mapper = lambda f, iter: tqdm(imap(f, iter), total=pdf.nRlz)
+    elif showProgress == "print":
+
+        def print_progress(iter, total):
+            steps = max(total // 20, 1)
+            for i, x in enumerate(iter):
+                if i % steps == 0:
+                    print(f"{i+1}/{total}")
+                yield x
+
+        mapper = lambda f, iter: print_progress(imap(f, iter), pdf.nRlz)
+    else:
+        mapper = imap
 
     achain_masks_uncond = [get_bool_mask(n, alpha, False) for alpha in achains]
     achain_masks_cond = [get_bool_mask(n, alpha, True) for alpha in achains]
 
     if parts == "inf" or parts == "all":
-        i_cap_plus = tqdm(
-            mapper(partial(compute_i_cap_plus, pdf, achain_masks_uncond), pdf.coords),
-            total=pdf.nRlz,
-        )
+        i_cap_plus = mapper(partial(compute_i_cap_plus, pdf, achain_masks_uncond), pdf.coords)
 
     if parts == "mis" or parts == "all":
-        i_cap_minus = tqdm(
-            mapper(partial(compute_i_cap_minus, pdf, achain_masks_cond), pdf.coords),
-            total=pdf.nRlz,
-        )
+        i_cap_minus = mapper(partial(compute_i_cap_minus, pdf, achain_masks_cond), pdf.coords)
 
     if verbose & 1:
         print("[Done]")
