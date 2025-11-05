@@ -155,7 +155,7 @@ class PDF:
             coords.shape[0] == probs.shape[0]
         ), "Dimensions of coordinate array (nRealisations, nVariables) and probability array (nRealisations,) do not match"
 
-        assert np.sum(probs) - 1 < 1e-10, "Probabilities must sum up to 1"
+        assert np.isclose(np.sum(probs), 1), "Probabilities must sum up to 1"
 
         if not coords.data.f_contiguous:
             print(
